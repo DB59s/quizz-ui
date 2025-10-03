@@ -8,6 +8,11 @@ import type { Adapter } from 'next-auth/adapters'
 
 const prisma = new PrismaClient()
 
+interface LogicCredentials {
+  email: string
+  password: string
+}
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as Adapter,
 
@@ -32,11 +37,11 @@ export const authOptions: NextAuthOptions = {
          * For e.g. return { id: 1, name: 'J Smith', email: 'jsmith@example.com' }
          * You can also use the `req` object to obtain additional parameters (i.e., the request IP address)
          */
-        const { email, password } = credentials as { email: string; password: string }
+        const { email, password } = credentials as LogicCredentials
 
         try {
           // ** Login API Call to match the user credentials and receive user data in response along with his role
-          const res = await fetch(`${process.env.API_URL}/login`, {
+          const loginRes = await fetch(`${process.env.API_URL}/api/v1/auth/login`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
@@ -44,19 +49,34 @@ export const authOptions: NextAuthOptions = {
             body: JSON.stringify({ email, password })
           })
 
-          const data = await res.json()
+          if (!loginRes.ok) {
+            const errorData = await loginRes.json()
 
-          if (res.status === 401) {
-            throw new Error(JSON.stringify(data))
+            console.error('[NEXT_AUTH] Login failed:', errorData)
+
+            // Handle different error response formats
+            const errorMessage =
+              errorData.message ||
+              errorData.messages?.join(', ') ||
+              'Login failed'
+
+            // Return JSON string for better error handling in frontend
+            throw new Error(
+              JSON.stringify({
+                message: [errorMessage],
+                statusCode: errorData.statusCode || 401
+              })
+            )
           }
 
-          if (res.status === 200) {
+          if (loginRes.status === 200) {
             /*
              * Please unset all the sensitive information of the user either from API response or before returning
              * user data below. Below return statement will set the user object in the token and the same is set in
              * the session which will be accessible all over the app.
              */
-            return data
+          
+            return await loginRes.json()
           }
 
           return null
