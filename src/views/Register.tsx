@@ -134,7 +134,7 @@ const Register = ({ mode }: { mode: SystemMode }) => {
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/register`, {
+      const response = await fetch('/api/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -143,8 +143,6 @@ const Register = ({ mode }: { mode: SystemMode }) => {
       })
 
       const data = await response.json()
-
-      console.log('Registration result:', data, 'Status:', response.status)
 
       if (response.ok && data.success) {
         router.push('/login')
@@ -176,7 +174,6 @@ const Register = ({ mode }: { mode: SystemMode }) => {
         }
       }
     } catch (error: any) {
-      console.error('Network error:', error)
       toast.error('Network error. Please try again.', {
         position: 'bottom-right',
         autoClose: 5000,
