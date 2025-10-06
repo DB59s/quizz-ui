@@ -8,6 +8,7 @@ import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import Typography from '@mui/material/Typography'
 import Grid from '@mui/material/Grid2'
+// import Fab from '@mui/material/Fab'
 
 const HomeNavigation = () => {
   const params = useParams()
@@ -40,7 +41,9 @@ const HomeNavigation = () => {
 
   return (
     <div className='flex flex-col gap-6'>
-      <h1>Trang chủ</h1>
+      <div className='flex justify-between items-center'>
+        <h1>Trang chủ</h1>
+      </div>
 
       <Grid container spacing={6}>
         {navigationCards.map((card, index) => (

@@ -24,6 +24,9 @@ import Button from '@mui/material/Button'
 // Third-party Imports
 import { signOut, useSession } from 'next-auth/react'
 
+// Lib Imports
+import { clearSessionStorage } from '@/libs/axios-client'
+
 // Type Imports
 import type { Locale } from '@configs/i18n'
 
@@ -74,6 +77,9 @@ const UserDropdown = () => {
 
   const handleUserLogout = async () => {
     try {
+      // Clear session storage before signing out
+      clearSessionStorage()
+      
       // Sign out from the app
       await signOut({ callbackUrl: process.env.NEXT_PUBLIC_APP_URL })
     } catch (error) {

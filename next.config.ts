@@ -6,13 +6,13 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/',
-        destination: '/en/dashboards/crm',
+        destination: '/en/home',
         permanent: true,
         locale: false
       },
       {
         source: '/:lang(en|fr|ar)',
-        destination: '/:lang/dashboards/crm',
+        destination: '/:lang/home',
         permanent: true,
         locale: false
       },
@@ -23,6 +23,13 @@ const nextConfig: NextConfig = {
         locale: false
       }
     ]
+  },
+  experimental: {
+    turbo: {
+      resolveAlias: {
+        'openid-client': './node_modules/openid-client/lib/index.js'
+      }
+    }
   }
 }
 

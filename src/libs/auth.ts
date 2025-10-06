@@ -75,8 +75,9 @@ export const authOptions: NextAuthOptions = {
              * user data below. Below return statement will set the user object in the token and the same is set in
              * the session which will be accessible all over the app.
              */
+            const userData = await loginRes.json()
           
-            return await loginRes.json()
+            return userData
           }
 
           return null
@@ -131,6 +132,15 @@ export const authOptions: NextAuthOptions = {
          * in token which then will be available in the `session()` callback
          */
         token.name = user.name
+        token.email = user.email
+        token.id = user.id
+        
+        // Store accessToken from login response - try multiple paths
+        token.accessToken = (user as any).data?.access_token || 
+                           (user as any).access_token || 
+                           (user as any).data?.accessToken ||
+                           (user as any).accessToken ||
+                           (user as any).data?.token
       }
 
       return token
@@ -138,8 +148,13 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         // ** Add custom params to user in session which are added in `jwt()` callback via `token` parameter
-        session.user.name = token.name
+        session.user.name = token.name as string
+        session.user.email = token.email as string
+        ;(session.user as any).id = token.id
       }
+      
+      // Add accessToken to session
+      ;(session as any).accessToken = token.accessToken
 
       return session
     }
