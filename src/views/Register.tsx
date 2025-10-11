@@ -48,7 +48,8 @@ type FormValues = {
   email: string
   password: string
   fullName: string
-  studentCode: string
+  studentCode: string,
+  phoneNumber: string
 }
 
 // Styled Custom Components
@@ -117,7 +118,8 @@ const Register = ({ mode }: { mode: SystemMode }) => {
       email: '',
       fullName: '',
       studentCode: '',
-      password: ''
+      password: '',
+      phoneNumber: ''
     },
     mode: 'onBlur'
   })
@@ -130,7 +132,8 @@ const Register = ({ mode }: { mode: SystemMode }) => {
       email: data.email,
       full_name: data.fullName,
       student_code: data.studentCode,
-      password: data.password
+      password: data.password,
+      phone_number: data.phoneNumber
     }
 
     try {
@@ -349,6 +352,32 @@ const Register = ({ mode }: { mode: SystemMode }) => {
                       {...(errors.password && {
                         error: true,
                         helperText: errors.password.message
+                      })}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <CustomInputLabel>Phone Number</CustomInputLabel>
+                <Controller
+                  name='phoneNumber'
+                  control={control}
+                  rules={{
+                    validate: value => {
+                      if (!value) {
+                        return 'Phone number is required'
+                      }
+                    }
+                  }}
+                  render={({ field }) => (
+                    <CustomTextField
+                      fullWidth
+                      required
+                      placeholder='Enter your phone number'
+                      {...field}
+                      {...(errors.phoneNumber && {
+                        error: true,
+                        helperText: errors.phoneNumber.message
                       })}
                     />
                   )}
