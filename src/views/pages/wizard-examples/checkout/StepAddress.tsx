@@ -25,8 +25,6 @@ import type { CustomInputHorizontalData, CustomInputVerticalData } from '@core/c
 // Component Imports
 import CustomInputHorizontal from '@core/components/custom-inputs/Horizontal'
 import CustomInputVertical from '@core/components/custom-inputs/Vertical'
-import AddEditAddress from '@components/dialogs/add-edit-address'
-import OpenDialogOnElementClick from '@components/dialogs/OpenDialogOnElementClick'
 
 // Styled Components
 const HorizontalContent = styled(Typography, {
@@ -141,12 +139,6 @@ const StepAddress = ({ handleNext }: { handleNext: () => void }) => {
     data.filter(item => item.isSelected).length - 1
   ].value
 
-  const buttonProps: ButtonProps = {
-    variant: 'tonal',
-    children: 'Add New Address',
-    className: 'self-start'
-  }
-
   // States
   const [selectedOption, setSelectedOption] = useState<string>(initialSelectedOption)
   const [selectedSpeed, setSelectedSpeed] = useState<string>('standard')
@@ -192,7 +184,6 @@ const StepAddress = ({ handleNext }: { handleNext: () => void }) => {
               />
             ))}
           </Grid>
-          <OpenDialogOnElementClick element={Button} elementProps={buttonProps} dialog={AddEditAddress} />
         </div>
         <div className='flex flex-col gap-4'>
           <Typography color='text.primary' className='font-medium self-start'>

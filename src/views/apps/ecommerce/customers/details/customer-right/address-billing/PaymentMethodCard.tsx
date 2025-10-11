@@ -19,8 +19,6 @@ import type { IconButtonProps } from '@mui/material/IconButton'
 // Component Imports
 import CustomAvatar from '@core/components/mui/Avatar'
 import OptionMenu from '@core/components/option-menu'
-import AddNewCard from '@components/dialogs/billing-card'
-import OpenDialogOnElementClick from '@components/dialogs/OpenDialogOnElementClick'
 
 type dataType = {
   typeOfCard: string
@@ -61,11 +59,6 @@ const CustomerAddress = (props: dataType) => {
   // States
   const [expanded, setExpanded] = useState(isDefaultCard ? true : false)
 
-  // Vars
-  const iconButtonProps: IconButtonProps = {
-    children: <i className='tabler-edit' />,
-    className: 'text-textSecondary'
-  }
 
   // Hooks
   const theme = useTheme()
@@ -112,12 +105,9 @@ const CustomerAddress = (props: dataType) => {
           </div>
         </div>
         <div className='mis-10'>
-          <OpenDialogOnElementClick
-            element={IconButton}
-            elementProps={iconButtonProps}
-            dialog={AddNewCard}
-            dialogProps={{ data: editCardData }}
-          />
+          <IconButton>
+            <i className='tabler-edit text-textSecondary' />
+          </IconButton>
           <IconButton>
             <i className='tabler-trash text-textSecondary' />
           </IconButton>
@@ -213,18 +203,10 @@ const CustomerAddress = (props: dataType) => {
 }
 
 const PaymentMethod = () => {
-  // Vars
-  const buttonProps: ButtonProps = {
-    variant: 'tonal',
-    children: 'New Payment Methods',
-    size: 'small'
-  }
-
   return (
     <Card>
       <CardHeader
         title='Payment Methods'
-        action={<OpenDialogOnElementClick element={Button} elementProps={buttonProps} dialog={AddNewCard} />}
         className='flex-wrap gap-4'
       />
       <CardContent>
