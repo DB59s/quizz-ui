@@ -17,8 +17,13 @@ module.exports = {
         NEXT_PUBLIC_DOCS_URL: 'https://demos.pixinvent.com/vuexy-nextjs-admin-template/documentation',
         NEXTAUTH_BASEPATH: '/api/auth',
         NEXTAUTH_URL: 'https://quizonline.website/api/auth',
-        API_URL: 'https://api.vuquangduy.io.vn/api',
-        NEXT_PUBLIC_API_URL: 'https://api.vuquangduy.io.vn/api'
+        NEXTAUTH_SECRET: 'your-super-secret-key-here',
+        GOOGLE_CLIENT_ID: '',
+        GOOGLE_CLIENT_SECRET: '',
+        DATABASE_URL: 'file:./dev.db',
+        API_URL: 'https://api.vuquangduy.io.vn',
+        NEXT_PUBLIC_API_URL: 'https://api.vuquangduy.io.vn',
+        NEXT_PUBLIC_FRONTEND_URL: 'https://quizonline.website'
       },
       error_file: './logs/pm2-error.log',
       out_file: './logs/pm2-out.log',
