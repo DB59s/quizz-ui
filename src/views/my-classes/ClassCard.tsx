@@ -87,9 +87,8 @@ const ClassCard = () => {
   }
 
   const handleViewClass = (classId: string) => {
-    console.log('View class:', classId)
-    // Navigate to class detail page
-    // router.push(`/class/${classId}`)
+    // Navigate to class assignments page
+    router.push(`/my-classes/${classId}`)
   }
 
   if (loading) {

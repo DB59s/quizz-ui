@@ -80,8 +80,11 @@ const UserDropdown = () => {
       // Clear session storage before signing out
       clearSessionStorage()
       
-      // Sign out from the app
-      await signOut({ callbackUrl: process.env.NEXT_PUBLIC_APP_URL })
+      // Sign out from the app and redirect to login page
+      await signOut({ 
+        callbackUrl: getLocalizedUrl('/login', locale as Locale),
+        redirect: true 
+      })
     } catch (error) {
       console.error(error)
 
