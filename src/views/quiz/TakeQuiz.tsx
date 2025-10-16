@@ -21,9 +21,10 @@ import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import Alert from '@mui/material/Alert'
+import CircularProgress from '@mui/material/CircularProgress'
 
-// Mock Data
-import quizData from '@/data/mock/quiz.json'
+// Service Imports
+import { quizService, type QuizDetail, type QuizQuestion as ApiQuizQuestion } from '@/services/quiz.service'
 
 // Types
 type Option = {
@@ -59,13 +60,71 @@ const TakeQuiz = ({ quizId }: { quizId: string }) => {
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [timeLeft, setTimeLeft] = useState(3600) // 60 minutes in seconds
   const [showSubmitDialog, setShowSubmitDialog] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    // Load quiz data
-    setQuiz(quizData.quiz as QuizInfo)
-    setQuestions(quizData.questions as Question[])
-    setTimeLeft(quizData.quiz.duration * 60)
+    fetchQuizData()
   }, [quizId])
+
+  const fetchQuizData = async () => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const response = await quizService.getQuizForStudent(quizId)
+      
+      if (response.success && response.data) {
+        const quizData = response.data
+        
+        // Calculate duration from start_time and end_time
+        const startTime = new Date(quizData.start_time)
+        const endTime = new Date(quizData.end_time)
+        const durationMinutes = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60))
+        
+        // Calculate total points (assume each question is worth 10 points by default)
+        const totalPoints = quizData.questions.length * 10
+        
+        // Set quiz info
+        setQuiz({
+          id: quizData.id,
+          title: quizData.name,
+          description: quizData.description,
+          duration: durationMinutes,
+          totalQuestions: quizData.questions.length,
+          totalPoints: totalPoints,
+          startTime: quizData.start_time,
+          endTime: quizData.end_time
+        })
+
+        // Map questions
+        const mappedQuestions: Question[] = quizData.questions.map((q, index) => ({
+          id: q.id,
+          question: q.content,
+          type: q.type,
+          points: 10, // Default points per question
+          options: q.answers.map((ans) => ({
+            id: ans.id,
+            text: ans.content
+          })),
+          correctAnswer: '' // Hidden from student
+        }))
+        
+        setQuestions(mappedQuestions)
+        
+        // Set timer based on remaining time
+        const now = new Date()
+        const remainingSeconds = Math.floor((endTime.getTime() - now.getTime()) / 1000)
+        setTimeLeft(remainingSeconds > 0 ? remainingSeconds : durationMinutes * 60)
+      }
+    } catch (err: any) {
+      console.error('Error fetching quiz:', err)
+      setError(err?.response?.data?.message || 'Đã xảy ra lỗi khi tải bài kiểm tra')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // Timer countdown
   useEffect(() => {
@@ -115,10 +174,41 @@ const TakeQuiz = ({ quizId }: { quizId: string }) => {
     setShowSubmitDialog(true)
   }
 
-  const handleSubmit = () => {
-    console.log('Submitting answers:', answers)
-    // Navigate to result page
-    router.push(`/quiz/${quizId}/result`)
+  const handleSubmit = async () => {
+    setSubmitting(true)
+    setShowSubmitDialog(false)
+
+    // TODO: Implement API submit when backend is ready
+    // For now, save answers to localStorage and navigate to result page
+    console.log('Submitted answers:', answers)
+    localStorage.setItem(`quiz_${quizId}_answers`, JSON.stringify(answers))
+    
+    // Simulate a short delay
+    setTimeout(() => {
+      router.push(`/quiz/${quizId}/result`)
+    }, 500)
+
+    /* 
+    // Uncomment when submit API is ready
+    try {
+      const formattedAnswers = Object.entries(answers).map(([questionId, optionId]) => ({
+        question_id: questionId,
+        selected_option_id: optionId
+      }))
+
+      const response = await quizService.submitQuiz(quizId, {
+        answers: formattedAnswers
+      })
+
+      if (response.success && response.data?.attempt_id) {
+        router.push(`/quiz/${quizId}/result?attemptId=${response.data.attempt_id}`)
+      }
+    } catch (err: any) {
+      console.error('Error submitting quiz:', err)
+      setError(err?.response?.data?.message || 'Đã xảy ra lỗi khi nộp bài')
+      setSubmitting(false)
+    }
+    */
   }
 
   const getAnsweredCount = () => {
@@ -129,8 +219,27 @@ const TakeQuiz = ({ quizId }: { quizId: string }) => {
     return questionId in answers
   }
 
+  if (loading) {
+    return (
+      <Box className="flex justify-center items-center p-8">
+        <CircularProgress />
+      </Box>
+    )
+  }
+
+  if (error) {
+    return (
+      <Box className="p-4">
+        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+        <Button variant="outlined" onClick={() => router.back()}>
+          Quay lại
+        </Button>
+      </Box>
+    )
+  }
+
   if (!quiz || questions.length === 0) {
-    return <Typography>Đang tải...</Typography>
+    return <Typography>Không có dữ liệu bài kiểm tra</Typography>
   }
 
   const currentQ = questions[currentQuestion]
@@ -234,14 +343,14 @@ const TakeQuiz = ({ quizId }: { quizId: string }) => {
               value={answers[currentQ.id] || ''}
               onChange={(e) => handleAnswerChange(currentQ.id, e.target.value)}
             >
-              {currentQ.options.map((option) => (
+              {currentQ.options.map((option, index) => (
                 <FormControlLabel
                   key={option.id}
                   value={option.id}
                   control={<Radio />}
                   label={
                     <Typography variant="body1">
-                      {option.id.toUpperCase()}. {option.text}
+                      {String.fromCharCode(65 + index)}. {option.text}
                     </Typography>
                   }
                   sx={{
@@ -302,9 +411,14 @@ const TakeQuiz = ({ quizId }: { quizId: string }) => {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowSubmitDialog(false)}>Hủy</Button>
-          <Button variant="contained" color="success" onClick={handleSubmit}>
-            Nộp bài
+          <Button onClick={() => setShowSubmitDialog(false)} disabled={submitting}>Hủy</Button>
+          <Button 
+            variant="contained" 
+            color="success" 
+            onClick={handleSubmit}
+            disabled={submitting}
+          >
+            {submitting ? 'Đang nộp...' : 'Nộp bài'}
           </Button>
         </DialogActions>
       </Dialog>

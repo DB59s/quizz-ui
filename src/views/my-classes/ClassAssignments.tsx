@@ -18,16 +18,18 @@ import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import IconButton from '@mui/material/IconButton'
 
-// Mock Data
-import assignmentsData from '@/data/mock/assignments.json'
-
+// Service Imports
 import { classService } from '@/services/class.service'
+import { classQuizzService, type ClassQuizz } from '@/services/classQuizz.service'
+import CircularProgress from '@mui/material/CircularProgress'
+import Alert from '@mui/material/Alert'
 
 // Types
 type AssignmentStatus = 'open' | 'completed' | 'upcoming'
 
 type Assignment = {
   id: string
+  quizId: string // Add quiz_id for navigation
   title: string
   type: 'exam' | 'assignment'
   startDate: string
@@ -50,31 +52,77 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
   const router = useRouter()
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [classInfo, setClassInfo] = useState<ClassInfo | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Load mock data
-    setAssignments(assignmentsData.assignments as Assignment[])
-    
-    // Fetch class info from student applications
-    classService.getStudentApplications().then((res: any) => {
-      if (res.success && res.data?.classes) {
-        const foundClass = res.data.classes.find((app: any) => app.class._id === classId)
+    fetchAssignments()
+  }, [classId])
+
+  const fetchAssignments = async () => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      // Fetch class quizzes
+      const quizzesResponse = await classQuizzService.getClassQuizzes(classId)
+      
+      if (quizzesResponse.success && quizzesResponse.data) {
+        // Map API response to Assignment type
+        const mappedAssignments: Assignment[] = quizzesResponse.data.map((cq: ClassQuizz) => {
+          const now = new Date()
+          const startDate = new Date(cq.start_time)
+          const endDate = new Date(cq.end_time)
+          
+          // Map API status to component status
+          let status: AssignmentStatus = 'upcoming'
+          if (cq.status === 'active') {
+            status = 'open'
+          } else if (cq.status === 'ended') {
+            status = 'completed'
+          } else if (cq.status === 'upcoming') {
+            status = 'upcoming'
+          }
+
+          return {
+            id: cq.id,
+            quizId: cq.quiz_id, // Store quiz_id for navigation
+            title: cq.quiz.name,
+            type: 'exam',
+            startDate: cq.start_time,
+            dueDate: cq.end_time,
+            status,
+            submitted: false, // TODO: Check from attempts
+            score: null, // TODO: Get from attempts
+            maxScore: 100, // Default value, can be updated later
+            description: cq.quiz.description
+          }
+        })
+        
+        setAssignments(mappedAssignments)
+      }
+
+      // Fetch class info
+      const applicationsRes = await classService.getStudentApplications()
+      if (applicationsRes.success && applicationsRes.data?.classes) {
+        const foundClass = applicationsRes.data.classes.find((app: any) => app.class._id === classId)
         if (foundClass) {
-          // Fetch teacher info
-          classService.getClassByCode(foundClass.class.class_code).then((classRes: any) => {
-            setClassInfo({
-              id: foundClass.class._id,
-              name: foundClass.class.name,
-              code: foundClass.class.class_code,
-              teacher: classRes.data?.teacher?.full_name || 'Chưa có thông tin'
-            })
+          const classRes = await classService.getClassByCode(foundClass.class.class_code)
+          setClassInfo({
+            id: foundClass.class._id,
+            name: foundClass.class.name,
+            code: foundClass.class.class_code,
+            teacher: classRes.data?.teacher?.full_name || 'Chưa có thông tin'
           })
         }
       }
-    }).catch((error) => {
-      console.error('Error fetching class info:', error)
-    })
-  }, [classId])
+    } catch (err: any) {
+      console.error('Error fetching assignments:', err)
+      setError(err?.response?.data?.message || 'Đã xảy ra lỗi khi tải dữ liệu')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -112,7 +160,7 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
             textTransform: 'none',
             fontWeight: 500
           }}
-          onClick={() => handleJoinAssignment(assignment.id)}
+          onClick={() => handleJoinAssignment(assignment)}
         >
           Tham gia
         </Button>
@@ -134,7 +182,7 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
               bgcolor: '#F9FAFB'
             }
           }}
-          onClick={() => handleViewResult(assignment.id)}
+          onClick={() => handleViewResult(assignment)}
         >
           Xem kết quả
         </Button>
@@ -160,18 +208,34 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
     return null
   }
 
-  const handleJoinAssignment = (assignmentId: string) => {
-    // Navigate to quiz page
-    router.push(`/quiz/${assignmentId}`)
+  const handleJoinAssignment = (assignment: Assignment) => {
+    // Navigate to quiz page using quiz_id
+    router.push(`/quiz/${assignment.quizId}`)
   }
 
-  const handleViewResult = (assignmentId: string) => {
-    // Navigate to result page
-    router.push(`/quiz/${assignmentId}/result`)
+  const handleViewResult = (assignment: Assignment) => {
+    // Navigate to result page using quiz_id
+    router.push(`/quiz/${assignment.quizId}/result`)
   }
 
   const handleBack = () => {
     router.back()
+  }
+
+  if (loading) {
+    return (
+      <Box className="flex justify-center items-center p-8">
+        <CircularProgress />
+      </Box>
+    )
+  }
+
+  if (error) {
+    return (
+      <Box className="p-4">
+        <Alert severity="error">{error}</Alert>
+      </Box>
+    )
   }
 
   return (

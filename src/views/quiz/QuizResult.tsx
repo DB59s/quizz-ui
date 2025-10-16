@@ -20,9 +20,10 @@ import AccordionDetails from '@mui/material/AccordionDetails'
 import Radio from '@mui/material/Radio'
 import RadioGroup from '@mui/material/RadioGroup'
 import FormControlLabel from '@mui/material/FormControlLabel'
+import CircularProgress from '@mui/material/CircularProgress'
 
-// Mock Data
-import resultData from '@/data/mock/quiz-result.json'
+// Service Imports
+import { quizService, type QuizDetail } from '@/services/quiz.service'
 
 // Types
 type Option = {
@@ -35,6 +36,7 @@ type Answer = {
   question: string
   studentAnswer: string
   correctAnswer: string
+  correctAnswerText: string // Add text content of correct answer
   isCorrect: boolean
   points: number
   options: Option[]
@@ -57,12 +59,80 @@ const QuizResult = ({ quizId }: { quizId: string }) => {
   const router = useRouter()
   const [result, setResult] = useState<QuizResult | null>(null)
   const [answers, setAnswers] = useState<Answer[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Load result data
-    setResult(resultData.result as QuizResult)
-    setAnswers(resultData.answers as Answer[])
+    fetchResultData()
   }, [quizId])
+
+  const fetchResultData = async () => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      // Get quiz data with correct answers
+      const quizResponse = await quizService.getQuizForStudent(quizId)
+      
+      if (quizResponse.success && quizResponse.data) {
+        const quizData = quizResponse.data
+        
+        // Get student answers from localStorage (stored during quiz)
+        const storedAnswers = localStorage.getItem(`quiz_${quizId}_answers`)
+        const studentAnswers: Record<string, string> = storedAnswers ? JSON.parse(storedAnswers) : {}
+        
+        // Calculate results
+        let earnedPoints = 0
+        const reviewAnswers: Answer[] = quizData.questions.map((q, index) => {
+          const studentAnswerId = studentAnswers[q.id]
+          const correctAnswer = q.answers.find(a => a.is_true)
+          const isCorrect = studentAnswerId === correctAnswer?.id
+          const points = isCorrect ? 10 : 0
+          earnedPoints += points
+
+          return {
+            questionId: q.id,
+            question: q.content,
+            studentAnswer: studentAnswerId || '',
+            correctAnswer: correctAnswer?.id || '',
+            correctAnswerText: correctAnswer?.content || '',
+            isCorrect,
+            points,
+            options: q.answers.map((ans) => ({
+              id: ans.id,
+              text: ans.content
+            }))
+          }
+        })
+
+        const totalPoints = quizData.questions.length * 10
+        const percentage = Math.round((earnedPoints / totalPoints) * 100)
+
+        setResult({
+          quizId: quizData.id,
+          quizTitle: quizData.name,
+          studentName: 'Học sinh', // TODO: Get from user session
+          submittedAt: new Date().toISOString(),
+          totalQuestions: quizData.questions.length,
+          totalPoints,
+          earnedPoints,
+          percentage,
+          timeSpent: 0, // TODO: Calculate from quiz start time
+          status: percentage >= 50 ? 'passed' : 'failed'
+        })
+
+        setAnswers(reviewAnswers)
+        
+        // Clear stored answers after showing result
+        localStorage.removeItem(`quiz_${quizId}_answers`)
+      }
+    } catch (err: any) {
+      console.error('Error fetching result:', err)
+      setError(err?.response?.data?.message || 'Đã xảy ra lỗi khi tải kết quả')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -87,8 +157,27 @@ const QuizResult = ({ quizId }: { quizId: string }) => {
     router.back()
   }
 
+  if (loading) {
+    return (
+      <Box className="flex justify-center items-center p-8">
+        <CircularProgress />
+      </Box>
+    )
+  }
+
+  if (error) {
+    return (
+      <Box className="p-4">
+        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+        <Button variant="outlined" onClick={() => router.back()}>
+          Quay lại
+        </Button>
+      </Box>
+    )
+  }
+
   if (!result) {
-    return <Typography>Đang tải...</Typography>
+    return <Typography>Không có dữ liệu kết quả</Typography>
   }
 
   return (
@@ -240,7 +329,7 @@ const QuizResult = ({ quizId }: { quizId: string }) => {
                 <Box>
                   {!answer.isCorrect && (
                     <Alert severity="error" sx={{ mb: 3 }}>
-                      Bạn đã chọn sai. Đáp án đúng là: <strong>{answer.correctAnswer.toUpperCase()}</strong>
+                      Bạn đã chọn sai. Đáp án đúng là: <strong>{answer.correctAnswerText}</strong>
                     </Alert>
                   )}
 
@@ -258,7 +347,7 @@ const QuizResult = ({ quizId }: { quizId: string }) => {
                           label={
                             <Box className="flex items-center gap-2">
                               <Typography variant="body1">
-                                {option.id.toUpperCase()}. {option.text}
+                                {String.fromCharCode(65 + answer.options.findIndex(o => o.id === option.id))}. {option.text}
                               </Typography>
                               {isCorrectAnswer && (
                                 <Chip
