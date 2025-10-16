@@ -87,7 +87,7 @@ const ClassCard = () => {
   }
 
   const handleViewClass = (classId: string) => {
-    // Navigate to class assignments page
+    // Navigate to class detail page
     router.push(`/my-classes/${classId}`)
   }
 
@@ -151,7 +151,7 @@ const ClassCard = () => {
                   mt: 2
                 }}
               >
-                Xem bài tập
+                Xem chi tiết
               </Button>
             </CardContent>
           </Card>

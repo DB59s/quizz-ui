@@ -46,7 +46,7 @@ type ClassInfo = {
   teacher: string
 }
 
-const ClassAssignments = ({ classId }: { classId: string }) => {
+const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isTabView?: boolean }) => {
   const router = useRouter()
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [classInfo, setClassInfo] = useState<ClassInfo | null>(null)
@@ -176,26 +176,28 @@ const ClassAssignments = ({ classId }: { classId: string }) => {
 
   return (
     <Box>
-      {/* Header */}
-      <Box className="flex items-center gap-4 mb-6">
-        <IconButton
-          onClick={handleBack}
-          sx={{
-            bgcolor: 'var(--mui-palette-primary-dark)',
-            borderRadius: 1,
-            color: 'white',
-            '&:hover': { bgcolor: 'var(--mui-palette-primary-dark)' },
-          }}
-        >
-          <i className="tabler-arrow-left" />
-        </IconButton>
-        <Typography variant="h5" className="font-semibold" sx={{ color: '#1E40AF' }}>
-          Bài tập & Kiểm tra - {classInfo?.name || 'Đang tải...'}
-        </Typography>
-      </Box>
+      {/* Header - Only show if not in tab view */}
+      {!isTabView && (
+        <Box className="flex items-center gap-4 mb-6">
+          <IconButton
+            onClick={handleBack}
+            sx={{
+              bgcolor: 'var(--mui-palette-primary-dark)',
+              borderRadius: 1,
+              color: 'white',
+              '&:hover': { bgcolor: 'var(--mui-palette-primary-dark)' },
+            }}
+          >
+            <i className="tabler-arrow-left" />
+          </IconButton>
+          <Typography variant="h5" className="font-semibold" sx={{ color: '#1E40AF' }}>
+            Bài tập & Kiểm tra - {classInfo?.name || 'Đang tải...'}
+          </Typography>
+        </Box>
+      )}
 
       {/* Table */}
-      <Card>
+      <Card sx={isTabView ? { boxShadow: 'none', border: 'none' } : {}}>
         <TableContainer>
           <Table sx={{ minWidth: 800 }}>
             <TableHead>

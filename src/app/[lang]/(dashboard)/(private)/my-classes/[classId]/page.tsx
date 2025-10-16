@@ -1,14 +1,14 @@
 // Component Imports
-import ClassAssignments from '@/views/my-classes/ClassAssignments'
+import ClassDetail from '@/views/my-classes/ClassDetail'
 
 type Props = {
   params: Promise<{ classId: string }>
 }
 
-const ClassAssignmentsPage = async ({ params }: Props) => {
+const ClassDetailPage = async ({ params }: Props) => {
   const { classId } = await params
   
-  return <ClassAssignments classId={classId} />
+  return <ClassDetail classId={classId} />
 }
 
-export default ClassAssignmentsPage
+export default ClassDetailPage
