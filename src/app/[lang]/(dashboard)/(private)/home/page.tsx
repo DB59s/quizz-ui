@@ -1,10 +1,10 @@
 'use client'
 
 // Component Imports
-import HomeNavigation from '@/views/HomeNavigation'
+import StudentDashboard from '@/views/dashboard/StudentDashboard'
 
 const HomePage = () => {
-  return <HomeNavigation />
+  return <StudentDashboard />
 }
 
 export default HomePage
