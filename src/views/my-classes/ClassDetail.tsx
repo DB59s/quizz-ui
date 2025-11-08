@@ -139,7 +139,7 @@ const ClassDetail = ({ classId }: { classId: string }) => {
           <i className="tabler-arrow-left" />
         </IconButton>
         <div>
-          <Typography variant="h5" className="font-semibold" sx={{ color: '#1E40AF' }}>
+          <Typography variant="h5" className="font-semibold" sx={{ color: 'var(--mui-palette-primary-dark)' }}>
             {classInfo.name}
           </Typography>
           <Typography variant="body2" color="text.secondary">
