@@ -2,7 +2,7 @@
 
 // React Imports
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams, useParams } from 'next/navigation'
 
 // MUI Imports
 import Card from '@mui/material/Card'
@@ -25,6 +25,7 @@ import CircularProgress from '@mui/material/CircularProgress'
 
 // Service Imports
 import { quizService, type QuizDetail, type QuizQuestion as ApiQuizQuestion } from '@/services/quiz.service'
+import { classQuizzService } from '@/services/classQuizz.service'
 
 // Types
 type Option = {
@@ -52,13 +53,21 @@ type QuizInfo = {
   endTime: string
 }
 
-const TakeQuiz = ({ quizId }: { quizId: string }) => {
+const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: string }) => {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const params = useParams()
+  const lang = (params.lang as string) || 'en'
+
+  // Lấy classQuizzId từ props hoặc URL
+  const classQuizzIdFromUrl = quizzClassId || searchParams.get('quizzClassId')
+
   const [quiz, setQuiz] = useState<QuizInfo | null>(null)
   const [questions, setQuestions] = useState<Question[]>([])
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [timeLeft, setTimeLeft] = useState(3600) // 60 minutes in seconds
+  const [startTime] = useState<number>(Date.now()) // Track when quiz started
   const [showSubmitDialog, setShowSubmitDialog] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -74,18 +83,18 @@ const TakeQuiz = ({ quizId }: { quizId: string }) => {
 
     try {
       const response = await quizService.getQuizForStudent(quizId)
-      
+
       if (response.success && response.data) {
         const quizData = response.data
-        
+
         // Calculate duration from start_time and end_time
         const startTime = new Date(quizData.start_time)
         const endTime = new Date(quizData.end_time)
         const durationMinutes = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60))
-        
+
         // Calculate total points (assume each question is worth 10 points by default)
         const totalPoints = quizData.questions.length * 10
-        
+
         // Set quiz info
         setQuiz({
           id: quizData.id,
@@ -104,22 +113,21 @@ const TakeQuiz = ({ quizId }: { quizId: string }) => {
           question: q.content,
           type: q.type,
           points: 10, // Default points per question
-          options: q.answers.map((ans) => ({
+          options: q.answers.map(ans => ({
             id: ans.id,
             text: ans.content
           })),
           correctAnswer: '' // Hidden from student
         }))
-        
+
         setQuestions(mappedQuestions)
-        
+
         // Set timer based on remaining time
         const now = new Date()
         const remainingSeconds = Math.floor((endTime.getTime() - now.getTime()) / 1000)
         setTimeLeft(remainingSeconds > 0 ? remainingSeconds : durationMinutes * 60)
       }
     } catch (err: any) {
-      console.error('Error fetching quiz:', err)
       setError(err?.response?.data?.message || 'Đã xảy ra lỗi khi tải bài kiểm tra')
     } finally {
       setLoading(false)
@@ -134,7 +142,7 @@ const TakeQuiz = ({ quizId }: { quizId: string }) => {
     }
 
     const timer = setInterval(() => {
-      setTimeLeft((prev) => prev - 1)
+      setTimeLeft(prev => prev - 1)
     }, 1000)
 
     return () => clearInterval(timer)
@@ -148,7 +156,7 @@ const TakeQuiz = ({ quizId }: { quizId: string }) => {
   }
 
   const handleAnswerChange = (questionId: string, answerId: string) => {
-    setAnswers((prev) => ({
+    setAnswers(prev => ({
       ...prev,
       [questionId]: answerId
     }))
@@ -156,13 +164,13 @@ const TakeQuiz = ({ quizId }: { quizId: string }) => {
 
   const handleNext = () => {
     if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion((prev) => prev + 1)
+      setCurrentQuestion(prev => prev + 1)
     }
   }
 
   const handlePrevious = () => {
     if (currentQuestion > 0) {
-      setCurrentQuestion((prev) => prev - 1)
+      setCurrentQuestion(prev => prev - 1)
     }
   }
 
@@ -178,37 +186,34 @@ const TakeQuiz = ({ quizId }: { quizId: string }) => {
     setSubmitting(true)
     setShowSubmitDialog(false)
 
-    // TODO: Implement API submit when backend is ready
-    // For now, save answers to localStorage and navigate to result page
-    console.log('Submitted answers:', answers)
-    localStorage.setItem(`quiz_${quizId}_answers`, JSON.stringify(answers))
-    
-    // Simulate a short delay
-    setTimeout(() => {
-      router.push(`/quiz/${quizId}/result`)
-    }, 500)
-
-    /* 
-    // Uncomment when submit API is ready
     try {
-      const formattedAnswers = Object.entries(answers).map(([questionId, optionId]) => ({
+      // Calculate total time in seconds
+      const totalTime = Math.floor((Date.now() - startTime) / 1000)
+
+      // Format answers according to the API structure
+      const formattedAnswers = Object.entries(answers).map(([questionId, selectedAnswerId]) => ({
         question_id: questionId,
-        selected_option_id: optionId
+        selected_answer_ids: [selectedAnswerId]
       }))
 
-      const response = await quizService.submitQuiz(quizId, {
-        answers: formattedAnswers
-      })
+      if (!classQuizzIdFromUrl) {
+        throw new Error('Không tìm thấy ID bài kiểm tra')
+      }
 
-      if (response.success && response.data?.attempt_id) {
-        router.push(`/quiz/${quizId}/result?attemptId=${response.data.attempt_id}`)
+      // Submit to API
+      const response = await classQuizzService.submitQuizAttempt(classQuizzIdFromUrl, formattedAnswers, totalTime)
+
+      if (response.success && response.data) {
+        // Navigate to result page using submission_id
+        const submissionId = response.data.submission_id
+        router.push(`/${lang}/quiz/${submissionId}/result`)
+      } else {
+        throw new Error(response.message || 'Đã xảy ra lỗi khi nộp bài')
       }
     } catch (err: any) {
-      console.error('Error submitting quiz:', err)
-      setError(err?.response?.data?.message || 'Đã xảy ra lỗi khi nộp bài')
+      setError(err?.response?.data?.message || err.message || 'Đã xảy ra lỗi khi nộp bài')
       setSubmitting(false)
     }
-    */
   }
 
   const getAnsweredCount = () => {
@@ -221,7 +226,7 @@ const TakeQuiz = ({ quizId }: { quizId: string }) => {
 
   if (loading) {
     return (
-      <Box className="flex justify-center items-center p-8">
+      <Box className='flex justify-center items-center p-8'>
         <CircularProgress />
       </Box>
     )
@@ -229,9 +234,11 @@ const TakeQuiz = ({ quizId }: { quizId: string }) => {
 
   if (error) {
     return (
-      <Box className="p-4">
-        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
-        <Button variant="outlined" onClick={() => router.back()}>
+      <Box className='p-4'>
+        <Alert severity='error' sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+        <Button variant='outlined' onClick={() => router.back()}>
           Quay lại
         </Button>
       </Box>
@@ -250,12 +257,12 @@ const TakeQuiz = ({ quizId }: { quizId: string }) => {
       {/* Header */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Box className="flex justify-between items-start mb-4">
+          <Box className='flex justify-between items-start mb-4'>
             <div>
-              <Typography variant="h5" className="font-semibold mb-2">
+              <Typography variant='h5' className='font-semibold mb-2'>
                 {quiz.title}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant='body2' color='text.secondary'>
                 {quiz.description}
               </Typography>
             </div>
@@ -266,34 +273,32 @@ const TakeQuiz = ({ quizId }: { quizId: string }) => {
             />
           </Box>
 
-          <Box className="flex gap-4 items-center">
-            <Typography variant="body2">
+          <Box className='flex gap-4 items-center'>
+            <Typography variant='body2'>
               Câu hỏi: {currentQuestion + 1}/{questions.length}
             </Typography>
-            <Typography variant="body2">
+            <Typography variant='body2'>
               Đã trả lời: {getAnsweredCount()}/{questions.length}
             </Typography>
-            <Typography variant="body2">
-              Tổng điểm: {quiz.totalPoints}
-            </Typography>
+            <Typography variant='body2'>Tổng điểm: {quiz.totalPoints}</Typography>
           </Box>
 
-          <LinearProgress variant="determinate" value={progress} sx={{ mt: 2, height: 8, borderRadius: 4 }} />
+          <LinearProgress variant='determinate' value={progress} sx={{ mt: 2, height: 8, borderRadius: 4 }} />
         </CardContent>
       </Card>
 
       {/* Question Navigation */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Typography variant="subtitle2" className="mb-3 font-semibold">
+          <Typography variant='subtitle2' className='mb-3 font-semibold'>
             Danh sách câu hỏi
           </Typography>
-          <Box className="flex flex-wrap gap-2">
+          <Box className='flex flex-wrap gap-2'>
             {questions.map((q, index) => (
               <Button
                 key={q.id}
                 variant={currentQuestion === index ? 'contained' : 'outlined'}
-                size="small"
+                size='small'
                 onClick={() => handleQuestionNavigate(index)}
                 sx={{
                   minWidth: 45,
@@ -304,15 +309,15 @@ const TakeQuiz = ({ quizId }: { quizId: string }) => {
                       ? 'primary.main'
                       : 'success.light'
                     : currentQuestion === index
-                    ? 'primary.main'
-                    : 'transparent',
+                      ? 'primary.main'
+                      : 'transparent',
                   color: isQuestionAnswered(q.id)
                     ? currentQuestion === index
                       ? 'white'
                       : 'success.dark'
                     : currentQuestion === index
-                    ? 'white'
-                    : 'text.primary',
+                      ? 'white'
+                      : 'text.primary',
                   borderColor: isQuestionAnswered(q.id) ? 'success.main' : 'divider',
                   '&:hover': {
                     bgcolor: currentQuestion === index ? 'primary.dark' : 'action.hover'
@@ -329,19 +334,19 @@ const TakeQuiz = ({ quizId }: { quizId: string }) => {
       {/* Question Card */}
       <Card>
         <CardContent>
-          <Box className="mb-4">
-            <Typography variant="h6" className="font-semibold mb-2">
+          <Box className='mb-4'>
+            <Typography variant='h6' className='font-semibold mb-2'>
               Câu {currentQuestion + 1}: ({currentQ.points} điểm)
             </Typography>
-            <Typography variant="body1" className="mb-4">
+            <Typography variant='body1' className='mb-4'>
               {currentQ.question}
             </Typography>
           </Box>
 
-          <FormControl component="fieldset" fullWidth>
+          <FormControl component='fieldset' fullWidth>
             <RadioGroup
               value={answers[currentQ.id] || ''}
-              onChange={(e) => handleAnswerChange(currentQ.id, e.target.value)}
+              onChange={e => handleAnswerChange(currentQ.id, e.target.value)}
             >
               {currentQ.options.map((option, index) => (
                 <FormControlLabel
@@ -349,7 +354,7 @@ const TakeQuiz = ({ quizId }: { quizId: string }) => {
                   value={option.id}
                   control={<Radio />}
                   label={
-                    <Typography variant="body1">
+                    <Typography variant='body1'>
                       {String.fromCharCode(65 + index)}. {option.text}
                     </Typography>
                   }
@@ -370,27 +375,23 @@ const TakeQuiz = ({ quizId }: { quizId: string }) => {
           </FormControl>
 
           {/* Navigation Buttons */}
-          <Box className="flex justify-between mt-6">
+          <Box className='flex justify-between mt-6'>
             <Button
-              variant="outlined"
+              variant='outlined'
               onClick={handlePrevious}
               disabled={currentQuestion === 0}
-              startIcon={<i className="tabler-arrow-left" />}
+              startIcon={<i className='tabler-arrow-left' />}
             >
               Câu trước
             </Button>
 
-            <Box className="flex gap-2">
+            <Box className='flex gap-2'>
               {currentQuestion === questions.length - 1 ? (
-                <Button variant="contained" color="success" onClick={handleSubmitClick}>
+                <Button variant='contained' color='success' onClick={handleSubmitClick}>
                   Nộp bài
                 </Button>
               ) : (
-                <Button
-                  variant="contained"
-                  onClick={handleNext}
-                  endIcon={<i className="tabler-arrow-right" />}
-                >
+                <Button variant='contained' onClick={handleNext} endIcon={<i className='tabler-arrow-right' />}>
                   Câu tiếp theo
                 </Button>
               )}
@@ -403,7 +404,7 @@ const TakeQuiz = ({ quizId }: { quizId: string }) => {
       <Dialog open={showSubmitDialog} onClose={() => setShowSubmitDialog(false)}>
         <DialogTitle>Xác nhận nộp bài</DialogTitle>
         <DialogContent>
-          <Alert severity="warning" sx={{ mb: 2 }}>
+          <Alert severity='warning' sx={{ mb: 2 }}>
             Bạn đã trả lời {getAnsweredCount()}/{questions.length} câu hỏi
           </Alert>
           <Typography>
@@ -411,13 +412,10 @@ const TakeQuiz = ({ quizId }: { quizId: string }) => {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowSubmitDialog(false)} disabled={submitting}>Hủy</Button>
-          <Button 
-            variant="contained" 
-            color="success" 
-            onClick={handleSubmit}
-            disabled={submitting}
-          >
+          <Button onClick={() => setShowSubmitDialog(false)} disabled={submitting}>
+            Hủy
+          </Button>
+          <Button variant='contained' color='success' onClick={handleSubmit} disabled={submitting}>
             {submitting ? 'Đang nộp...' : 'Nộp bài'}
           </Button>
         </DialogActions>
