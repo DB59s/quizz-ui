@@ -14,7 +14,7 @@ export interface ClassQuizz {
   class_id: string
   start_time: string
   end_time: string
-  status: 'active' | 'ended' | 'upcoming'
+  status: 'active' | 'ended'
   quiz: Quiz
 }
 
@@ -29,6 +29,30 @@ export interface ClassQuizzResponse {
     total_pages: number
   }
   cached: boolean
+}
+
+export interface SubmitQuizResponse {
+  success: boolean
+  message: string
+  data: {
+    submission_id: string
+    student_id: string
+    quiz_name: string
+    score: number
+    n_total_true: number
+    total_questions: number
+    submission_time: string
+    detailed_results: Array<{
+      question_id: string
+      content: string
+      answers: Array<{
+        answer_id: string
+        content: string
+        is_correct: boolean
+        student_selected: boolean
+      }>
+    }>
+  }
 }
 
 export const classQuizzService = {
@@ -61,9 +85,11 @@ export const classQuizzService = {
   /**
    * Submit quiz answers
    */
-  submitQuizAttempt: async (attemptId: string, answers: any[]) => {
-    const response = await apiClient.post(`/api/v1/quiz-attempts/${attemptId}/submit`, {
-      answers
+  submitQuizAttempt: async (classQuizzId: string, answers: any[], totalTime: number = 0) => {
+    const response = await apiClient.post<SubmitQuizResponse>(`/api/v1/submissions`, {
+      class_quiz_id: classQuizzId,
+      answers,
+      total_time: totalTime
     })
     return response.data
   },
@@ -83,4 +109,20 @@ export const classQuizzService = {
     const response = await apiClient.get(`/api/v1/class-quizzes/${classQuizzId}/attempts`)
     return response.data
   },
+
+  /**
+   * Get student's submissions for a class quiz
+   */
+  getStudentSubmissions: async (classQuizzId: string) => {
+    const response = await apiClient.get(`/api/v1/submissions/class-quiz/${classQuizzId}`)
+    return response.data
+  },
+
+  /**
+   * Get all student's submissions for a class
+   */
+  getStudentSubmissionsByClass: async (classId: string) => {
+    const response = await apiClient.get(`/api/v1/submissions/student/class/${classId}`)
+    return response.data
+  }
 }

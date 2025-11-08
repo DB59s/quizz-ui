@@ -7,8 +7,9 @@ type Props = {
 
 const QuizResultPage = async ({ params }: Props) => {
   const { quizId } = await params
-  
-  return <QuizResult quizId={quizId} />
+
+  // quizId from URL is actually the submission_id
+  return <QuizResult submissionId={quizId} />
 }
 
 export default QuizResultPage
