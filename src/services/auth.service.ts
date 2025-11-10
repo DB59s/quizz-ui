@@ -27,15 +27,32 @@ export interface AuthResponse {
   }
 }
 
+export interface ForgotPasswordRequest {
+  email: string
+}
+
+export interface VerifyOTPRequest {
+  email: string
+  otp: string
+}
+
+export interface ResetPasswordRequest {
+  email: string
+  newPassword: string
+  confirmNewPassword: string
+}
+
+export interface ForgotPasswordResponse {
+  success: boolean
+  message: string
+}
+
 export const authService = {
   /**
    * Login
    */
   login: async (credentials: LoginRequest) => {
-    const response = await apiClient.post<AuthResponse>(
-      '/api/v1/auth/login',
-      credentials
-    )
+    const response = await apiClient.post<AuthResponse>('/api/v1/auth/login', credentials)
     return response.data
   },
 
@@ -43,10 +60,7 @@ export const authService = {
    * Register
    */
   register: async (data: RegisterRequest) => {
-    const response = await apiClient.post<AuthResponse>(
-      '/api/v1/auth/register',
-      data
-    )
+    const response = await apiClient.post<AuthResponse>('/api/v1/auth/register', data)
     return response.data
   },
 
@@ -65,4 +79,28 @@ export const authService = {
     const response = await apiClient.get('/api/v1/auth/profile')
     return response.data
   },
+
+  /**
+   * Forgot Password - Send reset link
+   */
+  forgotPassword: async (data: ForgotPasswordRequest) => {
+    const response = await apiClient.post<ForgotPasswordResponse>('/api/v1/auth/forgot-password', data)
+    return response.data
+  },
+
+  /**
+   * Verify OTP
+   */
+  verifyOTP: async (data: VerifyOTPRequest) => {
+    const response = await apiClient.post<ForgotPasswordResponse>('/api/v1/auth/verify-otp', data)
+    return response.data
+  },
+
+  /**
+   * Reset Password
+   */
+  resetPassword: async (data: ResetPasswordRequest) => {
+    const response = await apiClient.post<ForgotPasswordResponse>('/api/v1/auth/reset-password', data)
+    return response.data
+  }
 }
