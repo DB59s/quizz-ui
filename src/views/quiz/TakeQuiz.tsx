@@ -458,7 +458,7 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
           <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
             <Clock size={20} color='#FFC107' />
             <Typography variant='body2' sx={{ fontWeight: 600, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
-              Time Left:{' '}
+              Thời gian còn lại:{' '}
               <Box component='span' sx={{ color: timeLeft < 300 ? 'error.main' : 'warning.main' }}>
                 {formatTime(timeLeft)}
               </Box>
