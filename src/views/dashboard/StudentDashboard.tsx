@@ -4,6 +4,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
+// Lucide Icons
+import { BarChart3 } from 'lucide-react'
+
 // MUI Imports
 import Grid from '@mui/material/Grid'
 import Card from '@mui/material/Card'
@@ -143,11 +146,14 @@ const StudentDashboard = () => {
       ) : (
         <Card>
           <CardContent>
-            <Typography variant='h6' className='font-semibold mb-4'>
-              Biểu đồ tiến độ
-            </Typography>
-            <Box className='flex items-center justify-center p-8'>
-              <Typography color='text.secondary'>Chưa có dữ liệu tiến độ</Typography>
+            <Box className='flex flex-col items-center justify-center py-12 px-4'>
+              <BarChart3 size={48} style={{ color: '#9CA3AF', marginBottom: 12 }} />
+              <Typography variant='h6' sx={{ fontWeight: 600, color: '#1F2937', mb: 1 }}>
+                Chưa có dữ liệu tiến độ
+              </Typography>
+              <Typography variant='body2' sx={{ color: '#6B7280', textAlign: 'center', maxWidth: 400 }}>
+                Bạn chưa hoàn thành bài kiểm tra nào. Hãy tham gia các lớp học và hoàn thành bài tập để xem tiến độ của bạn.
+              </Typography>
             </Box>
           </CardContent>
         </Card>

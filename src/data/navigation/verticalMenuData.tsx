@@ -16,7 +16,7 @@ const verticalMenuData = (dictionary: Awaited<ReturnType<typeof getDictionary>>)
       {
         label: dictionary['navigation'].crm,
         icon: 'tabler-circle',
-        href: '/dashboards/crm'
+        href: '/home'
       },
       {
         label: dictionary['navigation'].analytics,

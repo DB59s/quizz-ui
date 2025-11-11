@@ -3,6 +3,9 @@
 // React Imports
 import { useState, useEffect } from 'react'
 
+// Lucide Icons
+import { FileX } from 'lucide-react'
+
 // MUI Imports
 import Card from '@mui/material/Card'
 import Table from '@mui/material/Table'
@@ -176,27 +179,31 @@ const ApplicationsTable = () => {
 
   return (
     <Card>
-      <TableContainer>
-        <Table>
-          <TableHead>
-            <TableRow sx={{ backgroundColor: 'var(--mui-palette-primary-dark)' }}>
-              <TableCell sx={{ color: 'var(--mui-palette-common-white)', fontWeight: 600 }}>Tên lớp học</TableCell>
-              <TableCell sx={{ color: 'var(--mui-palette-common-white)', fontWeight: 600 }}>Mã lớp học</TableCell>
-              <TableCell sx={{ color: 'var(--mui-palette-common-white)', fontWeight: 600 }}>Giáo viên</TableCell>
-              <TableCell sx={{ color: 'var(--mui-palette-common-white)', fontWeight: 600 }}>Ngày đăng kí</TableCell>
-              <TableCell sx={{ color: 'var(--mui-palette-common-white)', fontWeight: 600 }}>Trạng thái</TableCell>
-              <TableCell sx={{ color: 'var(--mui-palette-common-white)', fontWeight: 600 }}>Thao tác</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {paginatedApplications.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} align='center'>
-                  Không có đơn đăng kí nào
-                </TableCell>
+      {applications.length === 0 ? (
+        <Box className='flex flex-col items-center justify-center py-12 px-4'>
+          <FileX size={48} style={{ color: '#9CA3AF', marginBottom: 12 }} />
+          <Typography variant='h6' sx={{ fontWeight: 600, color: '#1F2937', mb: 1 }}>
+            Chưa có đơn đăng ký nào
+          </Typography>
+          <Typography variant='body2' sx={{ color: '#6B7280', textAlign: 'center', maxWidth: 400 }}>
+            Bạn chưa gửi đơn đăng ký lớp học nào. Hãy tìm và đăng ký một lớp học để bắt đầu.
+          </Typography>
+        </Box>
+      ) : (
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow sx={{ backgroundColor: 'var(--mui-palette-primary-dark)' }}>
+                <TableCell sx={{ color: 'var(--mui-palette-common-white)', fontWeight: 600 }}>Tên lớp học</TableCell>
+                <TableCell sx={{ color: 'var(--mui-palette-common-white)', fontWeight: 600 }}>Mã lớp học</TableCell>
+                <TableCell sx={{ color: 'var(--mui-palette-common-white)', fontWeight: 600 }}>Giáo viên</TableCell>
+                <TableCell sx={{ color: 'var(--mui-palette-common-white)', fontWeight: 600 }}>Ngày đăng kí</TableCell>
+                <TableCell sx={{ color: 'var(--mui-palette-common-white)', fontWeight: 600 }}>Trạng thái</TableCell>
+                <TableCell sx={{ color: 'var(--mui-palette-common-white)', fontWeight: 600 }}>Thao tác</TableCell>
               </TableRow>
-            ) : (
-              paginatedApplications.map((application: Application, index: number) => (
+            </TableHead>
+            <TableBody>
+              {paginatedApplications.map((application: Application, index: number) => (
                 <TableRow key={application.registration_id || `app-${index}`}>
                   <TableCell>{application.class?.name || 'N/A'}</TableCell>
                   <TableCell>{application.class?.class_code || 'N/A'}</TableCell>
@@ -228,11 +235,11 @@ const ApplicationsTable = () => {
                     </Button>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
 
       {/* Confirmation Dialog */}
       <Dialog

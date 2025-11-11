@@ -5,6 +5,9 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useParams } from 'next/navigation'
 
+// Lucide Icons
+import { Inbox } from 'lucide-react'
+
 // MUI Imports
 import Card from '@mui/material/Card'
 import Typography from '@mui/material/Typography'
@@ -284,6 +287,20 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
     router.back()
   }
 
+  const renderEmptyState = () => {
+    return (
+      <Box className='flex flex-col items-center justify-center py-12 px-4'>
+        <Inbox size={48} style={{ color: '#9CA3AF', marginBottom: 12 }} />
+        <Typography variant='h6' sx={{ fontWeight: 600, color: '#1F2937', mb: 1 }}>
+          Chưa có bài tập nào
+        </Typography>
+        <Typography variant='body2' sx={{ color: '#6B7280', textAlign: 'center', maxWidth: 400 }}>
+          Giáo viên chưa giao bài tập hoặc kiểm tra cho lớp này. Vui lòng quay lại sau.
+        </Typography>
+      </Box>
+    )
+  }
+
   if (loading) {
     return (
       <Box className='flex justify-center items-center p-8'>
@@ -324,48 +341,52 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
 
       {/* Table */}
       <Card sx={isTabView ? { boxShadow: 'none', border: 'none' } : {}}>
-        <TableContainer>
-          <Table sx={{ minWidth: 800 }}>
-            <TableHead>
-              <TableRow sx={{ bgcolor: 'var(--mui-palette-primary-dark)' }}>
-                <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Tên bài</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Thời gian mở</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Hạn nộp</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Trạng thái</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Thao tác</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {assignments.map((assignment, index) => (
-                <TableRow
-                  key={assignment.id}
-                  sx={{
-                    bgcolor: index % 2 === 0 ? 'white' : '#F9FAFB',
-                    '&:hover': { bgcolor: '#F3F4F6' }
-                  }}
-                >
-                  <TableCell sx={{ py: 2.5 }}>
-                    <Typography variant='body2' sx={{ fontWeight: 500 }}>
-                      {assignment.title}
-                    </Typography>
-                  </TableCell>
-                  <TableCell sx={{ py: 2.5 }}>
-                    <Typography variant='body2' color='text.secondary'>
-                      {formatDate(assignment.startDate)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell sx={{ py: 2.5 }}>
-                    <Typography variant='body2' color='text.secondary'>
-                      {formatDate(assignment.dueDate)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell sx={{ py: 2.5 }}>{getStatusChip(assignment.status)}</TableCell>
-                  <TableCell sx={{ py: 2.5 }}>{getActionButton(assignment)}</TableCell>
+        {assignments.length === 0 ? (
+          renderEmptyState()
+        ) : (
+          <TableContainer>
+            <Table sx={{ minWidth: 800 }}>
+              <TableHead>
+                <TableRow sx={{ bgcolor: 'var(--mui-palette-primary-dark)' }}>
+                  <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Tên bài</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Thời gian mở</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Hạn nộp</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Trạng thái</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Thao tác</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              </TableHead>
+              <TableBody>
+                {assignments.map((assignment, index) => (
+                  <TableRow
+                    key={assignment.id}
+                    sx={{
+                      bgcolor: index % 2 === 0 ? 'white' : '#F9FAFB',
+                      '&:hover': { bgcolor: '#F3F4F6' }
+                    }}
+                  >
+                    <TableCell sx={{ py: 2.5 }}>
+                      <Typography variant='body2' sx={{ fontWeight: 500 }}>
+                        {assignment.title}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ py: 2.5 }}>
+                      <Typography variant='body2' color='text.secondary'>
+                        {formatDate(assignment.startDate)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ py: 2.5 }}>
+                      <Typography variant='body2' color='text.secondary'>
+                        {formatDate(assignment.dueDate)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ py: 2.5 }}>{getStatusChip(assignment.status)}</TableCell>
+                    <TableCell sx={{ py: 2.5 }}>{getActionButton(assignment)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
       </Card>
     </Box>
   )
