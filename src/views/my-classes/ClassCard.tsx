@@ -4,6 +4,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
+// Lucide Icons
+import { BookOpen } from 'lucide-react'
+
 // MUI Imports
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
@@ -107,7 +110,15 @@ const ClassCard = () => {
 
   if (classes.length === 0) {
     return (
-      <Alert severity="info">Bạn chưa có lớp học nào được duyệt</Alert>
+      <Box className="flex flex-col items-center justify-center py-12 px-4">
+        <BookOpen size={48} style={{ color: '#9CA3AF', marginBottom: 12 }} />
+        <Typography variant="h6" sx={{ fontWeight: 600, color: '#1F2937', mb: 1 }}>
+          Chưa có lớp học nào
+        </Typography>
+        <Typography variant="body2" sx={{ color: '#6B7280', textAlign: 'center', maxWidth: 400 }}>
+          Bạn chưa có lớp học nào được duyệt. Vui lòng đăng ký một lớp học để bắt đầu.
+        </Typography>
+      </Box>
     )
   }
 

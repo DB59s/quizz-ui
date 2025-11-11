@@ -31,7 +31,7 @@ const defaultSuggestions: DefaultSuggestionsType[] = [
       },
       {
         label: 'CRM',
-        href: '/dashboards/crm',
+        href: '/home',
         icon: 'tabler-chart-pie-2'
       },
       {

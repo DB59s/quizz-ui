@@ -11,13 +11,19 @@ const nextConfig = {
     return [
       {
         source: '/',
-        destination: '/en/dashboards/crm',
+        destination: '/en/home',
         permanent: true,
         locale: false
       },
       {
         source: '/:lang(en|fr|ar)',
-        destination: '/:lang/dashboards/crm',
+        destination: '/:lang/home',
+        permanent: true,
+        locale: false
+      },
+      {
+        source: '/:lang(en|fr|ar)/dashboards/crm',
+        destination: '/:lang/home',
         permanent: true,
         locale: false
       },
