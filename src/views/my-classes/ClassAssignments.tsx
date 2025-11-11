@@ -21,12 +21,18 @@ import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import IconButton from '@mui/material/IconButton'
+import CircularProgress from '@mui/material/CircularProgress'
+import Alert from '@mui/material/Alert'
+
+// Component Imports
+import ClassAssignmentsPagination from '@/components/pagination/ClassAssignmentsPagination'
+
+// CSS Imports
+import 'rc-pagination/assets/index.css'
 
 // Service Imports
 import { classService } from '@/services/class.service'
 import { classQuizzService, type ClassQuizz } from '@/services/classQuizz.service'
-import CircularProgress from '@mui/material/CircularProgress'
-import Alert from '@mui/material/Alert'
 
 // Types
 type AssignmentStatus = 'open' | 'completed' | 'upcoming'
@@ -63,6 +69,10 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [validClassId, setValidClassId] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(0)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+  const [totalItems, setTotalItems] = useState(0)
 
   useEffect(() => {
     // Validate classId before fetching
@@ -72,18 +82,25 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
       return
     }
     setValidClassId(classId)
-    fetchAssignments()
-  }, [classId])
+    fetchAssignments(currentPage)
+  }, [classId, currentPage])
 
-  const fetchAssignments = async () => {
+  const fetchAssignments = async (page: number = 1) => {
     setLoading(true)
     setError(null)
 
     try {
-      // Fetch class quizzes
-      const quizzesResponse = await classQuizzService.getClassQuizzes(classId)
+      // Fetch class quizzes with pagination
+      const quizzesResponse = await classQuizzService.getClassQuizzes(classId, page, itemsPerPage)
 
       if (quizzesResponse.success && quizzesResponse.data) {
+        // Update pagination info
+        if (quizzesResponse.pagination) {
+          setTotalPages(quizzesResponse.pagination.total_pages)
+          setItemsPerPage(quizzesResponse.pagination.items_per_page)
+          setTotalItems(quizzesResponse.pagination.total_items)
+        }
+
         // Fetch all submissions for this class at once
         const submissionsMap: Record<string, any> = {}
 
@@ -287,6 +304,10 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
     router.back()
   }
 
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
   const renderEmptyState = () => {
     return (
       <Box className='flex flex-col items-center justify-center py-12 px-4'>
@@ -344,48 +365,63 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
         {assignments.length === 0 ? (
           renderEmptyState()
         ) : (
-          <TableContainer>
-            <Table sx={{ minWidth: 800 }}>
-              <TableHead>
-                <TableRow sx={{ bgcolor: 'var(--mui-palette-primary-dark)' }}>
-                  <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Tên bài</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Thời gian mở</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Hạn nộp</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Trạng thái</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Thao tác</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {assignments.map((assignment, index) => (
-                  <TableRow
-                    key={assignment.id}
-                    sx={{
-                      bgcolor: index % 2 === 0 ? 'white' : '#F9FAFB',
-                      '&:hover': { bgcolor: '#F3F4F6' }
-                    }}
-                  >
-                    <TableCell sx={{ py: 2.5 }}>
-                      <Typography variant='body2' sx={{ fontWeight: 500 }}>
-                        {assignment.title}
-                      </Typography>
-                    </TableCell>
-                    <TableCell sx={{ py: 2.5 }}>
-                      <Typography variant='body2' color='text.secondary'>
-                        {formatDate(assignment.startDate)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell sx={{ py: 2.5 }}>
-                      <Typography variant='body2' color='text.secondary'>
-                        {formatDate(assignment.dueDate)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell sx={{ py: 2.5 }}>{getStatusChip(assignment.status)}</TableCell>
-                    <TableCell sx={{ py: 2.5 }}>{getActionButton(assignment)}</TableCell>
+          <>
+            <TableContainer>
+              <Table sx={{ minWidth: 800 }}>
+                <TableHead>
+                  <TableRow sx={{ bgcolor: 'var(--mui-palette-primary-dark)' }}>
+                    <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Tên bài</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Thời gian mở</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Hạn nộp</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Trạng thái</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Thao tác</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {assignments.map((assignment, index) => (
+                    <TableRow
+                      key={assignment.id}
+                      sx={{
+                        bgcolor: index % 2 === 0 ? 'white' : '#F9FAFB',
+                        '&:hover': { bgcolor: '#F3F4F6' }
+                      }}
+                    >
+                      <TableCell sx={{ py: 2.5 }}>
+                        <Typography variant='body2' sx={{ fontWeight: 500 }}>
+                          {assignment.title}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ py: 2.5 }}>
+                        <Typography variant='body2' color='text.secondary'>
+                          {formatDate(assignment.startDate)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ py: 2.5 }}>
+                        <Typography variant='body2' color='text.secondary'>
+                          {formatDate(assignment.dueDate)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ py: 2.5 }}>{getStatusChip(assignment.status)}</TableCell>
+                      <TableCell sx={{ py: 2.5 }}>{getActionButton(assignment)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+
+            {/* Pagination */}
+            <ClassAssignmentsPagination
+              pagination={{
+                page: currentPage,
+                limit: itemsPerPage,
+                totalItems: totalItems,
+                total_pages: totalPages,
+                items_per_page: itemsPerPage,
+                total_items: totalItems
+              }}
+              onChangePage={handlePageChange}
+            />
+          </>
         )}
       </Card>
     </Box>
