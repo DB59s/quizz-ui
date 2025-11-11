@@ -414,28 +414,26 @@ const QuizResult = ({ submissionId }: { submissionId: string }) => {
                   )}
 
                   {/* Student Answer Section */}
-                  {!answer.isCorrect && (
-                    <Box className='flex flex-col gap-2'>
-                      <Typography variant='body2' className='font-semibold text-gray-700'>
-                        Câu trả lời của bạn:
-                      </Typography>
-                      <Box
-                        className='p-3 rounded-md border'
-                        sx={{
-                          bgcolor: 'error.lighter',
-                          borderColor: 'error.light',
-                          color: 'error.main'
-                        }}
-                      >
-                        {answer.type === '2'
-                          ? answer.options
-                              .filter(opt => opt.student_selected)
-                              .map(opt => opt.content)
-                              .join(', ') || 'Chưa chọn đáp án'
-                          : answer.options.find(opt => opt.student_selected)?.content || 'Chưa chọn đáp án'}
-                      </Box>
+                  {/* <Box className='flex flex-col gap-2'>
+                    <Typography variant='body2' className='font-semibold text-gray-700'>
+                      Câu trả lời của bạn:
+                    </Typography>
+                    <Box
+                      className='p-3 rounded-md border'
+                      sx={{
+                        bgcolor: answer.isCorrect ? 'success.lighter' : 'error.lighter',
+                        borderColor: answer.isCorrect ? 'success.light' : 'error.light',
+                        color: answer.isCorrect ? 'success.main' : 'error.main'
+                      }}
+                    >
+                      {answer.type === '2'
+                        ? answer.options
+                            .filter(opt => opt.student_selected)
+                            .map(opt => opt.content)
+                            .join(', ') || 'Chưa chọn đáp án'
+                        : answer.options.find(opt => opt.student_selected)?.content || 'Chưa chọn đáp án'}
                     </Box>
-                  )}
+                  </Box> */}
 
                   {/* Correct Answer Section */}
                   {!answer.isCorrect && (
@@ -456,11 +454,11 @@ const QuizResult = ({ submissionId }: { submissionId: string }) => {
                     </Box>
                   )}
 
-                  {/* Correct answer confirmation for correct answers */}
-                  {answer.isCorrect && (
+                  {/* Correct answer confirmation for correct answers (single choice only) */}
+                  {/* {answer.isCorrect && answer.type !== '2' && (
                     <Box className='flex flex-col gap-2'>
                       <Typography variant='body2' className='font-semibold text-gray-700'>
-                        Câu trả lời của bạn:
+                        Đáp án đúng:
                       </Typography>
                       <Box
                         className='p-3 rounded-md border'
@@ -473,7 +471,7 @@ const QuizResult = ({ submissionId }: { submissionId: string }) => {
                         {answer.correctAnswerText}
                       </Box>
                     </Box>
-                  )}
+                  )} */}
 
                   {/* All Options */}
                   <Box className='flex flex-col gap-2 pt-2'>
