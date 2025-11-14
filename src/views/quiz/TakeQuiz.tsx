@@ -123,10 +123,9 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
 
         setQuestions(mappedQuestions)
 
-        // Set timer based on remaining time
-        const now = new Date()
-        const remainingSeconds = Math.floor((endTime.getTime() - now.getTime()) / 1000)
-        setTimeLeft(remainingSeconds > 0 ? remainingSeconds : durationMinutes * 60)
+        // Set timer based on total_time from API or default to 600 seconds
+        const totalTime = quizData.total_time ?? 600 // Use total_time from API, default to 600 seconds
+        setTimeLeft(totalTime)
       }
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Đã xảy ra lỗi khi tải bài kiểm tra')
@@ -164,9 +163,7 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
         const isSelected = currentAnswers.includes(answerId)
         return {
           ...prev,
-          [questionId]: isSelected
-            ? currentAnswers.filter(id => id !== answerId)
-            : [...currentAnswers, answerId]
+          [questionId]: isSelected ? currentAnswers.filter(id => id !== answerId) : [...currentAnswers, answerId]
         }
       } else {
         // For single choice questions, replace the answer
@@ -668,7 +665,7 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: 3,
+            borderRadius: 3
           }
         }}
       >

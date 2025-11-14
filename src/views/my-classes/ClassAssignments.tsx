@@ -193,7 +193,7 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
       case 'open':
         return <Chip label='Đang mở' size='small' color='info' sx={{ bgcolor: '#E0F2FE', color: '#0369A1' }} />
       case 'completed':
-        return <Chip label='Đã hoàn thành' size='small' color='success' sx={{ bgcolor: '#D1FAE5', color: '#059669' }} />
+        return <Chip label='Đã kết thúc' size='small' sx={{ bgcolor: '#FEE2E2', color: '#DC2626' }} />
       case 'upcoming':
         return <Chip label='Chưa mở' size='small' sx={{ bgcolor: '#E5E7EB', color: '#6B7280' }} />
       default:
