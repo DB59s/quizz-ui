@@ -107,7 +107,7 @@ const StudentDashboard = () => {
       {/* Header */}
       <Box className='mb-6'>
         <Typography variant='h4' className='font-bold mb-2'>
-          Dashboard
+          Trang chủ
         </Typography>
         <Typography variant='body1' color='text.secondary'>
           Xem tổng quan về kết quả học tập của bạn

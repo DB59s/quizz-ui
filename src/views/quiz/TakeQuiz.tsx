@@ -1,7 +1,7 @@
 'use client'
 
 // React Imports
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams, useParams } from 'next/navigation'
 
 // MUI Imports
@@ -68,11 +68,27 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
   const [answers, setAnswers] = useState<Record<string, string[]>>({})
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [timeLeft, setTimeLeft] = useState(3600) // 60 minutes in seconds
-  const [startTime] = useState<number>(Date.now()) // Track when quiz started
+  const startTimeRef = useRef<number | null>(null) // Use ref to persist start time across refreshes
+  const totalTimeRef = useRef<number | null>(null) // Store total quiz time
   const [showSubmitDialog, setShowSubmitDialog] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  // Initialize startTime from sessionStorage or create new one
+  useEffect(() => {
+    if (startTimeRef.current === null) {
+      const savedStartTime = typeof window !== 'undefined' ? sessionStorage.getItem(`quiz_start_${quizId}`) : null
+      if (savedStartTime) {
+        startTimeRef.current = parseInt(savedStartTime, 10)
+      } else {
+        startTimeRef.current = Date.now()
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem(`quiz_start_${quizId}`, startTimeRef.current.toString())
+        }
+      }
+    }
+  }, [quizId])
 
   useEffect(() => {
     fetchQuizData()
@@ -125,6 +141,7 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
 
         // Set timer based on total_time from API or default to 600 seconds
         const totalTime = quizData.total_time ?? 600 // Use total_time from API, default to 600 seconds
+        totalTimeRef.current = totalTime
         setTimeLeft(totalTime)
       }
     } catch (err: any) {
@@ -135,18 +152,25 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
   }
 
   // Timer countdown
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (timeLeft <= 0) {
-      handleSubmit()
-      return
-    }
-
     const timer = setInterval(() => {
-      setTimeLeft(prev => prev - 1)
+      if (startTimeRef.current && totalTimeRef.current) {
+        const elapsedTime = Math.floor((Date.now() - startTimeRef.current) / 1000)
+        const remainingTime = Math.max(0, totalTimeRef.current - elapsedTime)
+        setTimeLeft(remainingTime)
+      }
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [timeLeft])
+  }, [])
+
+  // Auto submit when time is up
+  useEffect(() => {
+    if (timeLeft <= 0 && !submitting) {
+      handleSubmit()
+    }
+  }, [timeLeft, submitting])
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600)
@@ -197,7 +221,7 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
 
     try {
       // Calculate total time in seconds
-      const totalTime = Math.floor((Date.now() - startTime) / 1000)
+      const totalTime = startTimeRef.current ? Math.floor((Date.now() - startTimeRef.current) / 1000) : 0
 
       // Format answers according to the API structure
       const formattedAnswers = Object.entries(answers).map(([questionId, selectedAnswerIds]) => ({
@@ -472,7 +496,8 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
           maxWidth: '896px',
           flex: 1,
           px: { xs: 2, sm: 3, lg: 4 },
-          py: 4
+          py: 4,
+          pb: 16
         }}
       >
         <Box sx={{ width: '100%' }}>
@@ -590,7 +615,7 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
       <Box
         component='footer'
         sx={{
-          position: 'sticky',
+          position: 'absolute',
           bottom: 0,
           zIndex: 10,
           width: '100%'
