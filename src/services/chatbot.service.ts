@@ -44,6 +44,21 @@ export interface GetMessagesResponse {
   data: ChatMessage[]
 }
 
+export interface DeleteConversationResponse {
+  success: boolean
+  message: string
+}
+
+export interface UpdateConversationRequest {
+  title: string
+}
+
+export interface UpdateConversationResponse {
+  success: boolean
+  message: string
+  data: Conversation
+}
+
 const CHATBOT_API_BASE = process.env.NEXT_PUBLIC_CHATBOT_API_URL || 'https://api.vuquangduy.io.vn'
 
 export const chatbotService = {
@@ -82,6 +97,29 @@ export const chatbotService = {
   getMessages: async (conversationId: string) => {
     const response = await apiClient.get<GetMessagesResponse>(
       `${CHATBOT_API_BASE}/api/v1/chatbot/conversations/${conversationId}/messages`
+    )
+    return response.data
+  },
+
+  /**
+   * Delete a conversation
+   */
+  deleteConversation: async (conversationId: string) => {
+    const response = await apiClient.delete<DeleteConversationResponse>(
+      `${CHATBOT_API_BASE}/api/v1/chatbot/conversations/${conversationId}`
+    )
+    return response.data
+  },
+
+  /**
+   * Update a conversation title
+   */
+  updateConversation: async (conversationId: string, title: string) => {
+    const response = await apiClient.put<UpdateConversationResponse>(
+      `${CHATBOT_API_BASE}/api/v1/chatbot/conversations/${conversationId}`,
+      {
+        title
+      }
     )
     return response.data
   }

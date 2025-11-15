@@ -1,174 +1,103 @@
 'use client'
 
 // React Imports
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 // MUI Imports
-import { styled, useTheme } from '@mui/material/styles'
 import Box from '@mui/material/Box'
 import Select from '@mui/material/Select'
-import MenuItem from '@mui/material/MenuItem'
-import FormControl from '@mui/material/FormControl'
 import CircularProgress from '@mui/material/CircularProgress'
 import Typography from '@mui/material/Typography'
-import Chip from '@mui/material/Chip'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogActions from '@mui/material/DialogActions'
+import Button from '@mui/material/Button'
+import TextField from '@mui/material/TextField'
 
 // Icons
-import { History, Clock, Trash2 } from 'lucide-react'
+import { Trash2, Edit2 } from 'lucide-react'
 
 // Services
 import { chatbotService, type Conversation } from '@/services/chatbot.service'
 
-// ============= STYLED COMPONENTS =============
-
-const DropdownContainer = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.spacing(1),
-  width: '100%',
-  padding: theme.spacing(1.5, 2),
-  background: `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${theme.palette.action.hover}30 100%)`,
-  borderRadius: '12px',
-  border: `1.5px solid ${theme.palette.primary.main}20`,
-  boxShadow: `0 2px 8px ${theme.palette.primary.main}10`
-}))
-
-const HeaderBox = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(1),
-  marginBottom: theme.spacing(0.5)
-}))
-
-const HeaderTitle = styled(Typography)(({ theme }) => ({
-  fontSize: '13px',
-  fontWeight: 700,
-  color: theme.palette.text.primary,
-  textTransform: 'uppercase',
-  letterSpacing: '0.5px',
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(0.75)
-}))
-
-const StyledFormControl = styled(FormControl)(({ theme }) => ({
-  flex: 1,
-  minWidth: 0,
-  '& .MuiOutlinedInput-root': {
-    borderRadius: '10px',
-    height: '40px',
-    fontSize: '13px',
-    transition: 'all 0.3s ease',
-    backgroundColor: theme.palette.background.paper,
-    border: `1.5px solid ${theme.palette.divider}`,
-    '&:hover': {
-      borderColor: theme.palette.primary.main,
-      boxShadow: `0 2px 8px ${theme.palette.primary.main}15`
-    },
-    '&.Mui-focused': {
-      borderColor: theme.palette.primary.main,
-      boxShadow: `0 0 0 3px ${theme.palette.primary.main}20`
-    }
-  },
-  '& .MuiOutlinedInput-input': {
-    padding: theme.spacing(1, 1.25),
-    fontSize: '13px',
-    fontWeight: 500
-  },
-  '& .MuiOutlinedInput-notchedOutline': {
-    border: 'none'
-  }
-}))
-
-const StyledMenuItem = styled(MenuItem)(({ theme }) => ({
-  fontSize: '13px',
-  transition: 'all 0.2s ease',
-  '&:hover': {
-    backgroundColor: theme.palette.primary.main + '15'
-  },
-  '&.Mui-selected': {
-    backgroundColor: theme.palette.primary.main + '25',
-    '&:hover': {
-      backgroundColor: theme.palette.primary.main + '35'
-    }
-  }
-}))
-
-const LoadingBox = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: theme.spacing(1),
-  padding: theme.spacing(2),
-  color: theme.palette.text.secondary
-}))
-
-const LoadingText = styled(Typography)(({ theme }) => ({
-  fontSize: '13px',
-  fontWeight: 500,
-  color: theme.palette.text.secondary
-}))
-
-const EmptyStateBox = styled(Box)(({ theme }) => ({
-  textAlign: 'center',
-  padding: theme.spacing(2),
-  color: theme.palette.text.secondary
-}))
-
-const ConversationItemBox = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  width: '100%',
-  gap: theme.spacing(1)
-}))
-
-const ConversationTitle = styled(Typography)(({ theme }) => ({
-  fontSize: '13px',
-  fontWeight: 500,
-  color: theme.palette.text.primary,
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-  flex: 1
-}))
-
-const ConversationDate = styled(Chip)(({ theme }) => ({
-  height: '20px',
-  fontSize: '11px',
-  fontWeight: 500,
-  backgroundColor: theme.palette.primary.main + '15',
-  color: theme.palette.primary.main,
-  '& .MuiChip-icon': {
-    marginRight: 4,
-    fontSize: '12px',
-    color: theme.palette.primary.main
-  }
-}))
+// Styled Components
+import {
+  StyledFormControl,
+  StyledMenuItem,
+  LoadingBox,
+  LoadingText,
+  EmptyStateBox,
+  ConversationItemBox,
+  ConversationTitle,
+  ConversationDate,
+  Container,
+  NewConversationButton,
+  DeleteButton,
+  EditButton
+} from './styles/PastConversationsDropdown.styles'
 
 // ============= TYPES =============
 
 export type PastConversationsDropdownProps = {
   onConversationSelect?: (conversation: Conversation, messages: any[]) => void
+  onNewConversation?: (conversation: Conversation) => void
+  onStartNewConversation?: () => void
+  currentConversationId?: string | null
+  onConversationUpdate?: (conversation: Conversation) => void
+  cachedConversations?: Conversation[]
+  onConversationsChange?: (conversations: Conversation[]) => void
 }
 
 // ============= MAIN COMPONENT =============
 
-const PastConversationsDropdown = ({ onConversationSelect }: PastConversationsDropdownProps) => {
-  const theme = useTheme()
-  const [conversations, setConversations] = useState<Conversation[]>([])
+const PastConversationsDropdown = ({
+  onConversationSelect,
+  onNewConversation,
+  onStartNewConversation,
+  currentConversationId,
+  onConversationUpdate,
+  cachedConversations = [],
+  onConversationsChange
+}: PastConversationsDropdownProps) => {
+  const [conversations, setConversations] = useState<Conversation[]>(cachedConversations)
   const [selectedId, setSelectedId] = useState<string>('')
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [conversationToDelete, setConversationToDelete] = useState<Conversation | null>(null)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [conversationToEdit, setConversationToEdit] = useState<Conversation | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const hasFetchedRef = useRef(cachedConversations.length > 0)
 
-  // Fetch conversations on mount
+  // Update conversations when cachedConversations changes
   useEffect(() => {
+    if (cachedConversations.length > 0) {
+      setConversations(cachedConversations)
+      hasFetchedRef.current = true
+    }
+  }, [cachedConversations])
+
+  // Fetch conversations only if not cached
+  useEffect(() => {
+    if (hasFetchedRef.current || conversations.length > 0) {
+      return
+    }
+
     const fetchConversations = async () => {
       try {
         setLoading(true)
         setError(null)
         const response = await chatbotService.getConversations()
-        setConversations(response.data || [])
+        const fetchedConversations = response.data || []
+        setConversations(fetchedConversations)
+        hasFetchedRef.current = true
+        if (onConversationsChange) {
+          onConversationsChange(fetchedConversations)
+        }
       } catch (err) {
         setError('Failed to load conversations')
         console.error('Error fetching conversations:', err)
@@ -178,7 +107,21 @@ const PastConversationsDropdown = ({ onConversationSelect }: PastConversationsDr
     }
 
     fetchConversations()
-  }, [])
+  }, [conversations.length, onConversationsChange])
+
+  // Update selectedId when currentConversationId changes
+  useEffect(() => {
+    if (currentConversationId) {
+      setSelectedId(currentConversationId)
+    }
+  }, [currentConversationId])
+
+  // Update conversation in list when updated
+  useEffect(() => {
+    if (onConversationUpdate) {
+      // This will be called from parent when conversation is created/updated
+    }
+  }, [onConversationUpdate])
 
   const handleSelectChange = async (conversationId: string) => {
     setSelectedId(conversationId)
@@ -194,6 +137,124 @@ const PastConversationsDropdown = ({ onConversationSelect }: PastConversationsDr
         // Still pass conversation even if messages fail to load
         onConversationSelect(selected, [])
       }
+    }
+  }
+
+  const handleCreateConversation = () => {
+    // Just clear the chat, don't create conversation yet
+    if (onStartNewConversation) {
+      onStartNewConversation()
+    }
+    setSelectedId('')
+  }
+
+  // Method to add/update conversation in the list (called from parent)
+  const updateConversationInList = (conversation: Conversation) => {
+    setConversations(prev => {
+      const existingIndex = prev.findIndex(c => c.id === conversation.id)
+      let updated: Conversation[]
+      if (existingIndex >= 0) {
+        // Update existing
+        updated = [...prev]
+        updated[existingIndex] = conversation
+      } else {
+        // Add new at the beginning
+        updated = [conversation, ...prev]
+      }
+      if (onConversationsChange) {
+        onConversationsChange(updated)
+      }
+      return updated
+    })
+    setSelectedId(conversation.id)
+  }
+
+  // Expose method to parent via useEffect
+  useEffect(() => {
+    if (onConversationUpdate) {
+      // Store the update function reference
+      ;(window as any).__updateConversationInDropdown = updateConversationInList
+    }
+    return () => {
+      delete (window as any).__updateConversationInDropdown
+    }
+  }, [onConversationUpdate])
+
+  const handleDeleteClick = (conversation: Conversation, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setConversationToDelete(conversation)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!conversationToDelete) return
+
+    try {
+      setDeletingId(conversationToDelete.id)
+      const response = await chatbotService.deleteConversation(conversationToDelete.id)
+      if (response.success) {
+        setConversations(prev => {
+          const updated = prev.filter(c => c.id !== conversationToDelete.id)
+          if (onConversationsChange) {
+            onConversationsChange(updated)
+          }
+          return updated
+        })
+        if (selectedId === conversationToDelete.id) {
+          setSelectedId('')
+        }
+      }
+    } catch (err) {
+      console.error('Error deleting conversation:', err)
+      setError('Failed to delete conversation')
+    } finally {
+      setDeletingId(null)
+      setDeleteDialogOpen(false)
+      setConversationToDelete(null)
+    }
+  }
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false)
+    setConversationToDelete(null)
+  }
+
+  const handleEditClick = (conversation: Conversation, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setConversationToEdit(conversation)
+    setEditTitle(conversation.title)
+    setEditDialogOpen(true)
+  }
+
+  const handleEditCancel = () => {
+    setEditDialogOpen(false)
+    setConversationToEdit(null)
+    setEditTitle('')
+  }
+
+  const handleEditConfirm = async () => {
+    if (!conversationToEdit || !editTitle.trim()) return
+
+    try {
+      setUpdatingId(conversationToEdit.id)
+      const response = await chatbotService.updateConversation(conversationToEdit.id, editTitle.trim())
+      if (response.success && response.data) {
+        setConversations(prev => {
+          const updated = prev.map(c => (c.id === conversationToEdit.id ? response.data : c))
+          if (onConversationsChange) {
+            onConversationsChange(updated)
+          }
+          return updated
+        })
+        setEditDialogOpen(false)
+        setConversationToEdit(null)
+        setEditTitle('')
+      }
+    } catch (err) {
+      console.error('Error updating conversation:', err)
+      setError('Failed to update conversation')
+    } finally {
+      setUpdatingId(null)
     }
   }
 
@@ -227,50 +288,116 @@ const PastConversationsDropdown = ({ onConversationSelect }: PastConversationsDr
   if (conversations.length === 0) {
     return (
       <EmptyStateBox>
-        <Typography sx={{ fontSize: '13px', fontWeight: 500 }}>
-          Chưa có cuộc trò chuyện nào
-        </Typography>
+        <Typography sx={{ fontSize: '13px', fontWeight: 500 }}>Chưa có cuộc trò chuyện nào</Typography>
       </EmptyStateBox>
     )
   }
 
   return (
-    <DropdownContainer>
-      <HeaderBox>
-        <History size={18} style={{ color: theme.palette.primary.main }} />
-        <HeaderTitle>Lịch sử cuộc trò chuyện</HeaderTitle>
-      </HeaderBox>
-      <StyledFormControl fullWidth size="small">
+    <Container>
+      <StyledFormControl size='small' sx={{ flex: '0 0 calc(50% - 4px)' }}>
         <Select
           value={selectedId}
-          onChange={(e) => handleSelectChange(e.target.value)}
+          onChange={e => handleSelectChange(e.target.value)}
           displayEmpty
-          renderValue={(value) => value ? 'Đã chọn cuộc trò chuyện' : 'Chọn từ lịch sử...'}
+          renderValue={value => {
+            if (!value) return 'Chọn từ lịch sử...'
+            const conversation = conversations.find(c => c.id === value)
+            if (!conversation) return 'Chọn từ lịch sử...'
+            return conversation.title.length > 25 ? conversation.title.substring(0, 22) + '...' : conversation.title
+          }}
         >
-          <StyledMenuItem value="">
+          <StyledMenuItem value=''>
             <Typography sx={{ fontSize: '13px', fontStyle: 'italic', color: 'text.secondary' }}>
               Chọn một cuộc trò chuyện...
             </Typography>
           </StyledMenuItem>
-          {conversations.map((conversation) => (
+          {conversations.map(conversation => (
             <StyledMenuItem key={conversation.id} value={conversation.id}>
               <ConversationItemBox>
                 <ConversationTitle title={conversation.title}>
-                  {conversation.title.length > 40
-                    ? conversation.title.substring(0, 37) + '...'
-                    : conversation.title}
+                  {conversation.title.length > 40 ? conversation.title.substring(0, 37) + '...' : conversation.title}
                 </ConversationTitle>
-                <ConversationDate
-                  label={formatDate(conversation.created_at)}
-                  size="small"
-                  variant="outlined"
-                />
+                <ConversationDate label={formatDate(conversation.created_at)} size='small' variant='outlined' />
+                <EditButton
+                  size='small'
+                  onClick={e => handleEditClick(conversation, e)}
+                  disabled={updatingId === conversation.id || deletingId === conversation.id}
+                  title='Sửa tiêu đề'
+                >
+                  {updatingId === conversation.id ? <CircularProgress size={14} /> : <Edit2 size={14} />}
+                </EditButton>
+                <DeleteButton
+                  size='small'
+                  onClick={e => handleDeleteClick(conversation, e)}
+                  disabled={deletingId === conversation.id || updatingId === conversation.id}
+                  title='Xóa cuộc trò chuyện'
+                >
+                  {deletingId === conversation.id ? <CircularProgress size={14} /> : <Trash2 size={14} />}
+                </DeleteButton>
               </ConversationItemBox>
             </StyledMenuItem>
           ))}
         </Select>
       </StyledFormControl>
-    </DropdownContainer>
+      <NewConversationButton onClick={handleCreateConversation}>Tạo cuộc trò chuyện mới</NewConversationButton>
+
+      {/* Edit Conversation Dialog */}
+      <Dialog open={editDialogOpen} onClose={handleEditCancel} maxWidth='sm' fullWidth>
+        <DialogTitle>Sửa tiêu đề cuộc trò chuyện</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin='dense'
+            label='Tiêu đề'
+            fullWidth
+            variant='outlined'
+            value={editTitle}
+            onChange={e => setEditTitle(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey && editTitle.trim()) {
+                e.preventDefault()
+                handleEditConfirm()
+              }
+            }}
+            disabled={updatingId !== null}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleEditCancel} variant='outlined' color='secondary' disabled={updatingId !== null}>
+            Hủy
+          </Button>
+          <Button
+            onClick={handleEditConfirm}
+            variant='contained'
+            color='primary'
+            disabled={!editTitle.trim() || updatingId !== null}
+          >
+            {updatingId ? <CircularProgress size={20} /> : 'Lưu'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={handleDeleteCancel} maxWidth='sm' fullWidth>
+        <DialogTitle>Xác nhận xóa</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Bạn có chắc chắn muốn xóa cuộc trò chuyện <strong>"{conversationToDelete?.title}"</strong> ? Hành động này
+            không thể hoàn tác.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDeleteCancel} variant='outlined' color='secondary'>
+            Hủy
+          </Button>
+          <Button onClick={handleDeleteConfirm} variant='contained' color='error' disabled={deletingId !== null}>
+            {deletingId ? <CircularProgress size={20} /> : 'Xóa'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Container>
   )
 }
 

@@ -1,7 +1,7 @@
 'use client'
 
 // React Imports
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 
 // MUI Imports
 import TextField from '@mui/material/TextField'
@@ -14,371 +14,59 @@ import Avatar from '@mui/material/Avatar'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
 import Button from '@mui/material/Button'
-import { styled, useTheme } from '@mui/material/styles'
+import { useTheme } from '@mui/material/styles'
 
 // Icons
-import { Send, X, Bot, User, Minimize2, Maximize2, Trash2, ArrowDown, ChevronDown, ChevronUp, Crosshair } from 'lucide-react'
+import {
+  Send,
+  X,
+  Bot,
+  User,
+  Minimize2,
+  Maximize2,
+  Trash2,
+  ArrowDown,
+  ChevronDown,
+  ChevronUp,
+  Crosshair
+} from 'lucide-react'
 
 // Component Imports
 import { useChatbot } from '@/hooks/useChatbot'
 import { useSession } from 'next-auth/react'
 import TestScenariosPanel, { type ScenarioType } from './TestScenariosPanel'
 import PastConversationsDropdown from './PastConversationsDropdown'
-import { type Conversation } from '@/services/chatbot.service'
+import { type Conversation, chatbotService } from '@/services/chatbot.service'
+import { userService } from '@/services/user.service'
 
-// ============= STYLED COMPONENTS (Tiki Style) =============
-
-const Header = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  padding: theme.spacing(1.5, 2),
-  background: `linear-gradient(135deg, ${theme.palette.primary.main}15 0%, ${theme.palette.primary.main}08 100%)`,
-  borderBottom: `1.5px solid ${theme.palette.primary.main}20`,
-  minHeight: '60px',
-  gap: theme.spacing(1),
-  boxShadow: `0 2px 8px ${theme.palette.primary.main}10`
-}))
-
-const HeaderLeft = styled(Box)({
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  flex: 1
-})
-
-const HeaderRight = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(0.25)
-}))
-
-const MessagesContainer = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.spacing(0.5),
-  flex: 1,
-  overflowY: 'auto',
-  padding: theme.spacing(2),
-  backgroundColor: theme.palette.background.paper,
-  '&::-webkit-scrollbar': {
-    width: '6px'
-  },
-  '&::-webkit-scrollbar-track': {
-    background: 'transparent'
-  },
-  '&::-webkit-scrollbar-thumb': {
-    background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)',
-    borderRadius: '3px',
-    '&:hover': {
-      background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'
-    }
-  }
-}))
-
-const MessageRow = styled(Box, {
-  shouldForwardProp: prop => prop !== 'isUser'
-})<{ isUser?: boolean }>(({ theme, isUser }) => ({
-  display: 'flex',
-  alignItems: 'flex-start',
-  gap: 4,
-  marginBottom: theme.spacing(1.5),
-  flexDirection: isUser ? 'row-reverse' : 'row',
-  width: '100%'
-}))
-
-const MessageBubble = styled(Box, {
-  shouldForwardProp: prop => prop !== 'isUser'
-})<{ isUser?: boolean }>(({ theme, isUser }) => ({
-  padding: theme.spacing(1, 1.5),
-  maxWidth: isUser ? 'calc(100% - 8px)' : 'calc(100% - 40px)',
-  backgroundColor: isUser ? theme.palette.primary.main : theme.palette.action.hover,
-  color: isUser ? '#ffffff' : theme.palette.text.primary,
-  borderRadius: isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-  wordBreak: 'break-word',
-  whiteSpace: 'pre-wrap',
-  fontSize: '14px',
-  lineHeight: '20px',
-  marginLeft: isUser ? '35px' : '0',
-  boxShadow: isUser
-    ? `0 1px 2px ${theme.palette.primary.main}22`
-    : `0 1px 2px ${theme.palette.action.hover}`
-}))
-
-const InputContainer = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  flexDirection: 'column',
-  backgroundColor: theme.palette.background.paper,
-  borderTop: `1px solid ${theme.palette.divider}`
-}))
-
-const InputWrapperContainer = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'flex-end',
-  gap: theme.spacing(0.5),
-  padding: theme.spacing(1, 1.5)
-}))
-
-const InputWrapper = styled(Box)(({ theme }) => ({
-  flex: 1,
-  display: 'flex',
-  alignItems: 'center',
-  backgroundColor: theme.palette.background.paper,
-  borderRadius: '24px',
-  padding: theme.spacing(1, 1.75),
-  border: `1.5px solid ${theme.palette.divider}`,
-  minHeight: '44px',
-  maxHeight: '120px',
-  overflowY: 'auto',
-  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-  '&:hover': {
-    borderColor: theme.palette.primary.main,
-    boxShadow: `0 2px 8px ${theme.palette.primary.main}15`
-  },
-  '&:focus-within': {
-    borderColor: theme.palette.primary.main,
-    boxShadow: `0 0 0 3px ${theme.palette.primary.main}20`
-  },
-  '& .MuiTextField-root': {
-    width: '100%'
-  }
-}))
-
-const ActionButton = styled(IconButton)(({ theme }) => ({
-  color: theme.palette.text.secondary,
-  padding: theme.spacing(0.75),
-  minWidth: '40px',
-  minHeight: '40px',
-  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-  borderRadius: '10px',
-  '&:hover': {
-    backgroundColor: theme.palette.primary.main + '15',
-    color: theme.palette.primary.main,
-    transform: 'translateY(-2px)'
-  },
-  '&:active': {
-    transform: 'scale(0.95) translateY(0)'
-  },
-  '&.Mui-disabled': {
-    color: theme.palette.action.disabled,
-    opacity: 0.5
-  }
-}))
-
-const ChatWidget = styled(Box)(({ theme }) => ({
-  position: 'fixed',
-  bottom: theme.spacing(4),
-  right: theme.spacing(4),
-  width: '550px',
-  height: '680px',
-  maxHeight: '85vh',
-  display: 'flex',
-  flexDirection: 'column',
-  backgroundColor: theme.palette.background.paper,
-  borderRadius: '16px',
-  boxShadow: `0 8px 32px ${theme.palette.primary.main}20`,
-  zIndex: 1300,
-  overflow: 'hidden',
-  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-  border: `1px solid ${theme.palette.primary.main}10`,
-  [theme.breakpoints.down('sm')]: {
-    width: 'calc(100vw - 32px)',
-    height: 'calc(100vh - 100px)',
-    bottom: theme.spacing(2),
-    right: theme.spacing(2),
-    left: theme.spacing(2)
-  }
-}))
-
-const ChatContent = styled(Box)({
-  flex: 1,
-  display: 'flex',
-  flexDirection: 'column',
-  overflow: 'hidden'
-})
-
-const TypingIndicator = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(0.75),
-  padding: theme.spacing(1, 1.75),
-  backgroundColor: theme.palette.action.hover,
-  borderRadius: '20px',
-  width: 'fit-content',
-  boxShadow: `0 2px 8px ${theme.palette.action.hover}20`,
-  animation: 'slideUp 0.3s ease-out'
-}))
-
-const TypingDot = styled(Box)(({ theme }) => ({
-  width: 8,
-  height: 8,
-  borderRadius: '50%',
-  backgroundColor: theme.palette.text.secondary,
-  animation: 'typing 1.4s infinite',
-  '&:nth-of-type(2)': {
-    animationDelay: '0.2s'
-  },
-  '&:nth-of-type(3)': {
-    animationDelay: '0.4s'
-  },
-  '@keyframes typing': {
-    '0%, 60%, 100%': {
-      transform: 'translateY(0)'
-    },
-    '30%': {
-      transform: 'translateY(-10px)'
-    }
-  }
-}))
-
-const DropdownButton = styled(Button)(({ theme }) => ({
-  textTransform: 'none',
-  color: theme.palette.text.primary,
-  fontSize: '14px',
-  fontWeight: 500,
-  padding: theme.spacing(0.75, 1),
-  minWidth: 'auto',
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(0.5),
-  transition: 'all 0.2s ease',
-  '&:hover': {
-    backgroundColor: theme.palette.action.hover,
-    color: theme.palette.primary.main
-  },
-  '&:active': {
-    transform: 'scale(0.98)'
-  }
-}))
-
-const SuggestedQuestionItem = styled(Box)(({ theme }) => ({
-  padding: theme.spacing(1.5, 2),
-  borderRadius: '10px',
-  backgroundColor: theme.palette.action.hover,
-  border: `1.5px solid ${theme.palette.divider}`,
-  cursor: 'pointer',
-  transition: 'all 0.25s ease',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  '&:hover': {
-    backgroundColor: theme.palette.action.selected,
-    borderColor: theme.palette.primary.main,
-    transform: 'translateX(4px)',
-    boxShadow: `0 2px 8px ${theme.palette.primary.main}22`
-  }
-}))
-
-const ScrollToBottomButton = styled(IconButton)(({ theme }) => ({
-  position: 'absolute',
-  bottom: 80,
-  right: 16,
-  width: 44,
-  height: 44,
-  backgroundColor: theme.palette.background.paper,
-  boxShadow: `0 4px 16px ${theme.palette.primary.main}25`,
-  border: `1.5px solid ${theme.palette.primary.main}30`,
-  color: theme.palette.primary.main,
-  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-  animation: 'bounce 2s infinite',
-  '@keyframes bounce': {
-    '0%, 100%': {
-      transform: 'translateY(0)',
-      opacity: 1
-    },
-    '50%': {
-      transform: 'translateY(-6px)',
-      opacity: 0.8
-    }
-  },
-  '&:hover': {
-    backgroundColor: theme.palette.primary.main + '15',
-    color: theme.palette.primary.main,
-    transform: 'scale(1.1)',
-    boxShadow: `0 6px 20px ${theme.palette.primary.main}35`
-  }
-}))
-
-const FooterText = styled(Typography)(({ theme }) => ({
-  fontSize: '11px',
-  color: theme.palette.text.disabled,
-  textAlign: 'center',
-  padding: theme.spacing(0.5, 2),
-  fontStyle: 'italic'
-}))
-
-const WelcomeMessageCard = styled(Box)(({ theme }) => ({
-  background: `linear-gradient(135deg, ${theme.palette.primary.main}10 0%, ${theme.palette.primary.main}05 100%)`,
-  borderRadius: '14px',
-  padding: theme.spacing(2.5),
-  marginBottom: theme.spacing(1.5),
-  border: `1.5px solid ${theme.palette.primary.main}25`,
-  boxShadow: `0 2px 12px ${theme.palette.primary.main}12`,
-  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-}))
-
-const SenderName = styled(Typography)(({ theme }) => ({
-  fontSize: '13px',
-  fontWeight: 600,
-  color: theme.palette.text.primary,
-  marginBottom: 4
-}))
-
-const QuestionBankPanel = styled(Box, {
-  shouldForwardProp: prop => prop !== 'active' && prop !== 'expanded'
-})<{ active?: boolean; expanded?: boolean }>(({ theme, active, expanded }) => ({
-  display: active ? 'block' : 'none',
-  background: `linear-gradient(135deg, ${theme.palette.primary.main}12 0%, ${theme.palette.primary.main}08 100%)`,
-  border: `1.5px solid ${theme.palette.primary.main}30`,
-  borderRadius: '14px',
-  padding: theme.spacing(expanded ? 2 : 1.5),
-  margin: theme.spacing(1.5, 2),
-  boxShadow: `0 2px 12px ${theme.palette.primary.main}15`,
-  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-}))
-
-const QuestionBankHeader = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  cursor: 'pointer',
-  userSelect: 'none'
-}))
-
-const QuestionBankTitle = styled(Typography)(({ theme }) => ({
-  fontSize: '16px',
-  color: theme.palette.primary.main,
-  fontWeight: 600,
-  flex: 1
-}))
-
-const QuestionBankContent = styled(Box, {
-  shouldForwardProp: prop => prop !== 'expanded'
-})<{ expanded?: boolean }>(({ theme, expanded }) => ({
-  maxHeight: expanded ? '1000px' : '0',
-  overflow: 'hidden',
-  transition: 'max-height 0.3s ease, opacity 0.3s ease',
-  opacity: expanded ? 1 : 0,
-  marginTop: expanded ? theme.spacing(1.5) : 0
-}))
-
-const FormGroup = styled(Box)(({ theme }) => ({
-  marginBottom: theme.spacing(1.5)
-}))
-
-const FormLabel = styled(Typography)(({ theme }) => ({
-  display: 'block',
-  fontSize: '13px',
-  fontWeight: 600,
-  color: theme.palette.text.primary,
-  marginBottom: theme.spacing(0.5)
-}))
-
-const FormActions = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  gap: theme.spacing(1),
-  marginTop: theme.spacing(1.5)
-}))
+// Styled Components
+import {
+  ChatWidget,
+  ChatContent,
+  Header,
+  HeaderLeft,
+  HeaderRight,
+  MessagesContainer,
+  MessageRow,
+  MessageBubble,
+  SenderName,
+  WelcomeMessageCard,
+  InputContainer,
+  InputWrapperContainer,
+  InputWrapper,
+  ActionButton,
+  TypingIndicator,
+  TypingDot,
+  ScrollToBottomButton,
+  QuestionBankPanel,
+  QuestionBankHeader,
+  QuestionBankTitle,
+  QuestionBankContent,
+  FormGroup,
+  FormLabel,
+  FormActions,
+  StatusIndicator
+} from './styles/ChatbotDialog.styles'
 
 // ============= MAIN COMPONENT =============
 
@@ -434,12 +122,31 @@ const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
   const inputRef = useRef<HTMLInputElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
 
-  const { connected, messages, isLoading, error, sendMessage, startNewConversation, selectConversation } = useChatbot(accountId)
+  const {
+    connected,
+    messages,
+    isLoading,
+    error,
+    sendMessage,
+    startNewConversation,
+    selectConversation,
+    conversationId
+  } = useChatbot(accountId)
 
   const [currentScenario, setCurrentScenario] = useState<ScenarioType | null>(null)
   const [questionId, setQuestionId] = useState('')
   const [questionContent, setQuestionContent] = useState('')
   const [isQuestionBankExpanded, setIsQuestionBankExpanded] = useState(true)
+  const [userFullName, setUserFullName] = useState<string>('')
+  const [isCreatingConversation, setIsCreatingConversation] = useState(false)
+  const [conversationError, setConversationError] = useState<string | null>(null)
+  const cachedConversationsRef = useRef<Conversation[]>([])
+  const hasLoadedConversationsRef = useRef(false)
+
+  // Callback to update cached conversations
+  const handleConversationsChange = useCallback((conversations: Conversation[]) => {
+    cachedConversationsRef.current = conversations
+  }, [])
 
   // Sample questions for each scenario
   const sampleQuestions = {
@@ -558,6 +265,23 @@ const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
     setQuestionContent('')
   }
 
+  // Fetch user full_name from API
+  useEffect(() => {
+    if (open && session?.accessToken) {
+      const fetchUserProfile = async () => {
+        try {
+          const response = await userService.getProfile()
+          if (response.success && response.data?.full_name) {
+            setUserFullName(response.data.full_name)
+          }
+        } catch (error) {
+          console.error('Error fetching user profile:', error)
+        }
+      }
+      fetchUserProfile()
+    }
+  }, [open, session?.accessToken])
+
   // Focus input when dialog opens
   useEffect(() => {
     if (open) {
@@ -567,27 +291,47 @@ const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
     }
   }, [open])
 
-  const handleSend = () => {
-
+  const handleSend = async () => {
     if (!inputValue.trim()) {
-
       return
     }
 
-    if (isLoading) {
-
+    if (isLoading || isCreatingConversation) {
       return
     }
 
     if (!connected) {
-
       // Error will be shown from useChatbot hook
       return
     }
 
+    // If this is the first message, create conversation first
+    if (messages.length === 0) {
+      try {
+        setIsCreatingConversation(true)
+        setConversationError(null)
+        const title = inputValue.trim().length > 50 ? inputValue.trim().substring(0, 47) + '...' : inputValue.trim()
+        const response = await chatbotService.createConversation(title)
+        if (response.success && response.data) {
+          await selectConversation(response.data.id)
+          setConversationError(null)
+          // Update dropdown immediately with new conversation
+          if ((window as any).__updateConversationInDropdown) {
+            ;(window as any).__updateConversationInDropdown(response.data)
+          }
+        }
+      } catch (err) {
+        console.error('Error creating conversation:', err)
+        setConversationError('Failed to create conversation')
+        setIsCreatingConversation(false)
+        return
+      } finally {
+        setIsCreatingConversation(false)
+      }
+    }
+
     // Prepare context with force_type if scenario is selected
     const context = currentScenario ? { force_type: currentScenario } : undefined
-
 
     sendMessage(inputValue, context)
     setInputValue('')
@@ -622,7 +366,7 @@ const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
   }
 
   const userAvatar = session?.user?.image || null
-  const userName = session?.user?.name || 'You'
+  const displayName = userFullName || session?.user?.name || 'You'
 
   if (!open) return null
 
@@ -646,21 +390,18 @@ const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
               <Bot size={20} style={{ color: '#ffffff' }} />
             </Avatar>
             <Box>
-              <Typography variant='h6' sx={{ fontSize: '16px', fontWeight: 700, color: 'text.primary', mb: 0.25 }}>
-                Trợ Lý AI
+              <Typography variant='h6' sx={{ fontSize: '16px', fontWeight: 700, color: 'text.primary' }}>
+                Chatbot Hỗ trợ học tập
               </Typography>
-              <Typography sx={{ fontSize: '11px', color: 'text.secondary', fontWeight: 500 }}>
-                Sẵn sàng hỗ trợ
-              </Typography>
+              <StatusIndicator online={connected}>
+                <Box className='status-dot' />
+                <Typography sx={{ fontSize: '11px', color: 'text.secondary', fontWeight: 500, marginLeft: '5px' }}>
+                  {connected ? 'Đang trực tuyến' : 'Đang ngoại tuyến'}
+                </Typography>
+              </StatusIndicator>
             </Box>
           </HeaderLeft>
           <HeaderRight>
-            <ActionButton size='small' onClick={handleNewConversation} title='Xóa lịch sử chat'>
-              <Trash2 size={18} />
-            </ActionButton>
-            <ActionButton size='small' onClick={handleMinimize} title='Mở rộng khung chat'>
-              <Maximize2 size={18} />
-            </ActionButton>
             <ActionButton size='small' onClick={handleClose} title='Đóng khung chat'>
               <X size={18} />
             </ActionButton>
@@ -669,22 +410,42 @@ const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
 
         {/* Header Section - Static (no overflow) */}
         <Box sx={{ display: 'flex', flexDirection: 'column', overflow: 'visible' }}>
-          {error && (
+          {(error || conversationError) && (
             <Alert severity='error' sx={{ m: 1.5, mb: 0, borderRadius: '8px' }}>
-              {error}
+              {error || conversationError}
             </Alert>
           )}
 
           {/* Past Conversations Dropdown */}
-          <Box sx={{ px: 2, py: 1.5, borderBottom: `1px solid ${theme.palette.divider}`, display: 'flex', alignItems: 'center', position: 'relative', zIndex: 10 }}>
-            <PastConversationsDropdown onConversationSelect={handleConversationSelect} />
+          <Box
+            sx={{
+              px: 2,
+              py: 1.5,
+              display: 'flex',
+              alignItems: 'center',
+              position: 'relative',
+              zIndex: 10
+            }}
+          >
+            <PastConversationsDropdown
+              onConversationSelect={handleConversationSelect}
+              onNewConversation={async conversation => {
+                await selectConversation(conversation.id)
+              }}
+              onStartNewConversation={async () => {
+                await startNewConversation()
+              }}
+              currentConversationId={conversationId || null}
+              onConversationUpdate={conversation => {
+                // Update conversation in dropdown
+                if ((window as any).__updateConversationInDropdown) {
+                  ;(window as any).__updateConversationInDropdown(conversation)
+                }
+              }}
+              cachedConversations={cachedConversationsRef.current}
+              onConversationsChange={handleConversationsChange}
+            />
           </Box>
-
-          {/* Test Scenarios Panel */}
-          <TestScenariosPanel
-            currentScenario={currentScenario}
-            onScenarioChange={handleScenarioChange}
-          />
 
           {/* Question Bank Panel */}
           <QuestionBankPanel active={currentScenario === 'question_bank'} expanded={isQuestionBankExpanded}>
@@ -769,7 +530,7 @@ const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
                     <Bot size={24} style={{ color: theme.palette.primary.contrastText }} />
                   </Avatar>
                   <Box sx={{ flex: 1 }}>
-                    <SenderName>Trợ lý AI</SenderName>
+                    <SenderName>Chatbot Hỗ trợ học tập</SenderName>
                     <Typography
                       variant='body2'
                       sx={{ color: 'text.secondary', lineHeight: 1.5, fontSize: '14px', mb: 1 }}
@@ -790,7 +551,7 @@ const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
                       variant='body2'
                       sx={{ color: 'text.secondary', lineHeight: 1.5, fontSize: '13px', opacity: 0.8 }}
                     >
-                      Hãy chọn một scenario ở trên hoặc gõ câu hỏi trực tiếp!
+                      Hãy chọn một chế độ hoặc gõ câu hỏi trực tiếp!
                     </Typography>
                   </Box>
                 </Box>
@@ -803,9 +564,10 @@ const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
                   sx={{
                     width: 32,
                     height: 32,
-                    background: message.role === 'user'
-                      ? `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.light} 100%)`
-                      : theme.palette.action.hover,
+                    background:
+                      message.role === 'user'
+                        ? `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.light} 100%)`
+                        : theme.palette.action.hover,
                     flexShrink: 0,
                     boxShadow: message.role === 'user' ? `0 2px 8px ${theme.palette.primary.main}30` : 'none'
                   }}
@@ -814,7 +576,7 @@ const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
                     userAvatar ? (
                       <img
                         src={userAvatar}
-                        alt={userName}
+                        alt={displayName}
                         style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
                       />
                     ) : (
@@ -825,9 +587,21 @@ const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
                   )}
                 </Avatar>
                 <Box>
-                  {!message.role || (message.role === 'assistant' && <SenderName>Chatbot</SenderName>)}
+                  {message.role === 'user' ? (
+                    <SenderName alignRight>{displayName}</SenderName>
+                  ) : (
+                    <SenderName>Chatbot</SenderName>
+                  )}
                   <MessageBubble isUser={message.role === 'user'}>
-                    <Typography sx={{ fontSize: '14px', lineHeight: '20px' }}>{message.content}</Typography>
+                    <Typography
+                      sx={{
+                        fontSize: '14px',
+                        lineHeight: '20px',
+                        color: message.role === 'user' ? '#ffffff' : 'inherit'
+                      }}
+                    >
+                      {message.content}
+                    </Typography>
                   </MessageBubble>
                 </Box>
               </MessageRow>
@@ -863,6 +637,10 @@ const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
 
           {/* Input Area*/}
           <InputContainer>
+            {/* Test Scenarios Panel */}
+            <Box sx={{ px: 2, py: 1.5 }}>
+              <TestScenariosPanel currentScenario={currentScenario} onScenarioChange={handleScenarioChange} />
+            </Box>
             <InputWrapperContainer>
               <InputWrapper>
                 <TextField
@@ -872,7 +650,7 @@ const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
                   value={inputValue}
                   onChange={e => setInputValue(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  disabled={!connected || isLoading}
+                  disabled={!connected || isLoading || isCreatingConversation}
                   variant='standard'
                   multiline
                   maxRows={4}
@@ -904,7 +682,7 @@ const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
                 <ActionButton
                   size='small'
                   onClick={handleSend}
-                  disabled={isLoading || !connected}
+                  disabled={isLoading || !connected || isCreatingConversation}
                   sx={{
                     color: inputValue.trim() ? 'primary.main' : 'action.disabled'
                   }}
@@ -912,7 +690,7 @@ const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
                   <Send size={18} />
                 </ActionButton>
               ) : (
-                <ActionButton size='small' disabled={!connected || isLoading}>
+                <ActionButton size='small' disabled={!connected || isLoading || isCreatingConversation}>
                   <Send size={18} style={{ opacity: 0.5 }} />
                 </ActionButton>
               )}
