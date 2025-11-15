@@ -1,7 +1,7 @@
 'use client'
 
 // React Imports
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 
 // MUI Imports
 import TextField from '@mui/material/TextField'
@@ -38,6 +38,7 @@ import TestScenariosPanel, { type ScenarioType } from './TestScenariosPanel'
 import PastConversationsDropdown from './PastConversationsDropdown'
 import { type Conversation, chatbotService } from '@/services/chatbot.service'
 import { userService } from '@/services/user.service'
+import { debounce } from './utils/chatbot.utils'
 
 // Styled Components
 import {
@@ -80,47 +81,44 @@ const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
   const { data: session, status } = useSession()
 
   // Function to decode JWT token and get account_id
-  const getAccountIdFromToken = (token: string | undefined): string | null => {
+  const getAccountIdFromToken = useCallback((token: string | undefined): string | null => {
     if (!token) return null
 
     try {
-      // JWT token format: header.payload.signature
-      // We need to decode the payload (second part)
       const parts = token.split('.')
       if (parts.length !== 3) return null
 
-      // Decode base64 payload
       const payload = JSON.parse(atob(parts[1]))
-
-      // Try different possible field names
       return payload.account_id || payload.accountId || payload.id || payload.sub || null
     } catch (error) {
       return null
     }
-  }
+  }, [])
 
-  // Try multiple ways to get account ID
-  const accountId =
-    (session?.user as any)?.id ||
-    (session?.user as any)?.accountId ||
-    (session as any)?.accountId ||
-    (session as any)?.id ||
-    getAccountIdFromToken(session?.accessToken) ||
-    null
-
-  // Debug logging
-  useEffect(() => {
-    if (session?.accessToken) {
-      const tokenAccountId = getAccountIdFromToken(session.accessToken)
-    }
-  }, [session, status, accountId])
+  // Memoize account ID computation
+  const accountId = useMemo(
+    () =>
+      (session?.user as any)?.id ||
+      (session?.user as any)?.accountId ||
+      (session as any)?.accountId ||
+      (session as any)?.id ||
+      getAccountIdFromToken(session?.accessToken) ||
+      null,
+    [session, getAccountIdFromToken]
+  )
 
   const [inputValue, setInputValue] = useState('')
   const [dropdownAnchor, setDropdownAnchor] = useState<null | HTMLElement>(null)
   const [showScrollButton, setShowScrollButton] = useState(false)
+
+  // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const isSendingRef = useRef(false)
+  const creatingConversationRef = useRef(false)
+  const lastSendTimestampRef = useRef<number>(0)
+  const lastInputValueRef = useRef<string>('')
 
   const {
     connected,
@@ -148,84 +146,97 @@ const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
     cachedConversationsRef.current = conversations
   }, [])
 
-  // Sample questions for each scenario
-  const sampleQuestions = {
-    question_bank: [
-      'Có bao nhiêu câu hỏi về hệ điều hành?',
-      'Cho tôi xem câu hỏi về tiến trình',
-      'Tìm câu hỏi khó về bộ nhớ'
-    ],
-    knowledge_base: ['Tiến trình trong hệ điều hành là gì?', 'Giải thích về deadlock', 'Phân biệt tiến trình và luồng'],
-    general: ['Hôm nay thời tiết thế nào?', 'Kể cho tôi một câu chuyện vui', 'Bạn có thể làm gì?']
-  }
+  // Memoize sample questions
+  const sampleQuestions = useMemo(
+    () => ({
+      question_bank: [
+        'Có bao nhiêu câu hỏi về hệ điều hành?',
+        'Cho tôi xem câu hỏi về tiến trình',
+        'Tìm câu hỏi khó về bộ nhớ'
+      ],
+      knowledge_base: [
+        'Tiến trình trong hệ điều hành là gì?',
+        'Giải thích về deadlock',
+        'Phân biệt tiến trình và luồng'
+      ],
+      general: ['Hôm nay thời tiết thế nào?', 'Kể cho tôi một câu chuyện vui', 'Bạn có thể làm gì?']
+    }),
+    []
+  )
 
   // Auto scroll to bottom when new message arrives
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isLoading])
 
+  // Debounced scroll handler
+  const handleScroll = useCallback(() => {
+    const container = messagesContainerRef.current
+    if (!container) return
+
+    const { scrollTop, scrollHeight, clientHeight } = container
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100
+    setShowScrollButton(!isNearBottom && messages.length > 0)
+  }, [messages.length])
+
+  // Throttled scroll handler
+  const throttledHandleScroll = useMemo(() => debounce(handleScroll, 100), [handleScroll])
+
   // Handle scroll to show/hide scroll button
   useEffect(() => {
     const container = messagesContainerRef.current
     if (!container) return
 
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = container
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100
-      setShowScrollButton(!isNearBottom && messages.length > 0)
-    }
+    container.addEventListener('scroll', throttledHandleScroll)
+    return () => container.removeEventListener('scroll', throttledHandleScroll)
+  }, [throttledHandleScroll])
 
-    container.addEventListener('scroll', handleScroll)
-    return () => container.removeEventListener('scroll', handleScroll)
-  }, [messages.length])
-
-  const handleScrollToBottom = () => {
+  const handleScrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
+  }, [])
 
-  const handleSuggestedQuestionClick = (question: string) => {
+  const handleSuggestedQuestionClick = useCallback((question: string) => {
     setInputValue(question)
     inputRef.current?.focus()
-  }
+  }, [])
 
-  const handleScenarioChange = (scenario: ScenarioType | null) => {
-    setCurrentScenario(scenario)
+  const handleScenarioChange = useCallback(
+    (scenario: ScenarioType | null) => {
+      setCurrentScenario(scenario)
 
-    if (scenario === null) {
-      // Clear all when deselecting
-      setQuestionId('')
-      setQuestionContent('')
-      setInputValue('')
-      setIsQuestionBankExpanded(true)
-    } else if (scenario === 'question_bank') {
-      // Clear form when switching to question_bank
-      setQuestionId('')
-      setQuestionContent('')
-      // Auto expand when selecting question_bank
-      setIsQuestionBankExpanded(true)
-    } else {
-      // Auto-fill a random sample question for other scenarios
-      const samples = sampleQuestions[scenario]
-      const randomSample = samples[Math.floor(Math.random() * samples.length)]
-      setInputValue(randomSample)
-      inputRef.current?.focus()
-      // Collapse question bank panel when switching to other scenarios
-      setIsQuestionBankExpanded(false)
-    }
-  }
+      if (scenario === null) {
+        setQuestionId('')
+        setQuestionContent('')
+        setInputValue('')
+        setIsQuestionBankExpanded(true)
+      } else if (scenario === 'question_bank') {
+        setQuestionId('')
+        setQuestionContent('')
+        setIsQuestionBankExpanded(true)
+      } else {
+        const samples = sampleQuestions[scenario]
+        const randomSample = samples[Math.floor(Math.random() * samples.length)]
+        setInputValue(randomSample)
+        inputRef.current?.focus()
+        setIsQuestionBankExpanded(false)
+      }
+    },
+    [sampleQuestions]
+  )
 
-  const handleToggleQuestionBank = () => {
+  const handleToggleQuestionBank = useCallback(() => {
     setIsQuestionBankExpanded(prev => !prev)
-  }
+  }, [])
 
-  const handleConversationSelect = async (conversation: Conversation, messages: any[]) => {
-    // Load messages for the selected conversation
-    await selectConversation(conversation.id)
-  }
+  const handleConversationSelect = useCallback(
+    async (conversation: Conversation, messages: any[]) => {
+      await selectConversation(conversation.id)
+    },
+    [selectConversation]
+  )
 
-  const handleSubmitQuestionBank = () => {
+  const handleSubmitQuestionBank = useCallback(() => {
     if (!questionId.trim() && !questionContent.trim()) {
-      // Error will be shown via useChatbot hook
       return
     }
 
@@ -233,7 +244,6 @@ const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
       return
     }
 
-    // Build the query message
     let queryMessage = ''
     if (questionId && questionContent) {
       queryMessage = `Question ID: ${questionId}\nNội dung: ${questionContent}`
@@ -243,7 +253,6 @@ const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
       queryMessage = questionContent
     }
 
-    // Prepare context with question_id if provided
     const context: { force_type: 'question_bank'; question_id?: string } = {
       force_type: 'question_bank'
     }
@@ -252,18 +261,15 @@ const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
       context.question_id = questionId.trim()
     }
 
-    // Send message with context
     sendMessage(queryMessage, context)
-
-    // Clear form
     setQuestionId('')
     setQuestionContent('')
-  }
+  }, [questionId, questionContent, connected, isLoading, sendMessage])
 
-  const handleClearQuestionBankForm = () => {
+  const handleClearQuestionBankForm = useCallback(() => {
     setQuestionId('')
     setQuestionContent('')
-  }
+  }, [])
 
   // Fetch user full_name from API
   useEffect(() => {
@@ -291,82 +297,186 @@ const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
     }
   }, [open])
 
-  const handleSend = async () => {
-    if (!inputValue.trim()) {
-      return
-    }
+  // Extract conversation creation logic
+  const createNewConversationIfNeeded = useCallback(
+    async (title: string): Promise<string | null> => {
+      if (creatingConversationRef.current) {
+        console.warn('[createNewConversationIfNeeded] Creation already in progress')
+        return null
+      }
 
-    if (isLoading || isCreatingConversation) {
-      return
-    }
-
-    if (!connected) {
-      // Error will be shown from useChatbot hook
-      return
-    }
-
-    // If this is the first message, create conversation first
-    if (messages.length === 0) {
       try {
+        creatingConversationRef.current = true
         setIsCreatingConversation(true)
         setConversationError(null)
-        const title = inputValue.trim().length > 50 ? inputValue.trim().substring(0, 47) + '...' : inputValue.trim()
-        const response = await chatbotService.createConversation(title)
+
+        const trimmedTitle = title.length > 50 ? title.substring(0, 47) + '...' : title
+        console.log('[createNewConversationIfNeeded] Creating conversation with title:', trimmedTitle)
+
+        const response = await chatbotService.createConversation(trimmedTitle)
         if (response.success && response.data) {
+          console.log('[createNewConversationIfNeeded] Conversation created:', response.data.id)
+
           await selectConversation(response.data.id)
+
+          // Wait for conversationId to be updated (max 1 second)
+          let retries = 0
+          while (retries < 20 && conversationId !== response.data.id) {
+            await new Promise(resolve => setTimeout(resolve, 50))
+            retries++
+          }
+
           setConversationError(null)
-          // Update dropdown immediately with new conversation
+
+          // Update dropdown immediately
           if ((window as any).__updateConversationInDropdown) {
             ;(window as any).__updateConversationInDropdown(response.data)
           }
+
+          return response.data.id
+        } else {
+          console.error('[createNewConversationIfNeeded] Failed:', response)
+          return null
         }
       } catch (err) {
-        console.error('Error creating conversation:', err)
+        console.error('[createNewConversationIfNeeded] Error:', err)
         setConversationError('Failed to create conversation')
-        setIsCreatingConversation(false)
-        return
+        return null
       } finally {
         setIsCreatingConversation(false)
       }
+    },
+    [conversationId, selectConversation]
+  )
+
+  const handleSend = useCallback(async () => {
+    const now = Date.now()
+    const currentInput = inputValue.trim()
+
+    // Validation checks
+    if (isSendingRef.current || creatingConversationRef.current) {
+      console.warn('[handleSend] Send already in progress')
+      return
     }
 
-    // Prepare context with force_type if scenario is selected
-    const context = currentScenario ? { force_type: currentScenario } : undefined
+    if (now - lastSendTimestampRef.current < 2000 && lastInputValueRef.current === currentInput) {
+      console.warn('[handleSend] Duplicate call detected')
+      return
+    }
 
-    sendMessage(inputValue, context)
-    setInputValue('')
-  }
+    if (!currentInput || isLoading || isCreatingConversation || !connected) {
+      return
+    }
 
-  const handleDropdownOpen = (event: React.MouseEvent<HTMLElement>) => {
+    // Set flags
+    isSendingRef.current = true
+    lastSendTimestampRef.current = now
+    lastInputValueRef.current = currentInput
+
+    try {
+      let conversationIdToUse = conversationId
+
+      // Create conversation if first message
+      if (messages.length === 0) {
+        const newConversationId = await createNewConversationIfNeeded(currentInput)
+        if (!newConversationId) {
+          isSendingRef.current = false
+          creatingConversationRef.current = false
+          return
+        }
+        conversationIdToUse = newConversationId
+      }
+
+      // Prepare context
+      const context = currentScenario ? { force_type: currentScenario } : undefined
+
+      // Clear input
+      const messageToSend = currentInput
+      setInputValue('')
+
+      // Send message
+      console.log('[handleSend] Sending message, conversationId:', conversationIdToUse)
+      sendMessage(messageToSend, context, conversationIdToUse)
+
+      // Reset flags
+      if (messages.length === 0) {
+        setTimeout(() => {
+          creatingConversationRef.current = false
+        }, 500)
+      }
+    } catch (error) {
+      console.error('[handleSend] Unexpected error:', error)
+      creatingConversationRef.current = false
+    } finally {
+      setTimeout(() => {
+        isSendingRef.current = false
+      }, 1000)
+    }
+  }, [
+    inputValue,
+    isLoading,
+    isCreatingConversation,
+    connected,
+    messages.length,
+    conversationId,
+    currentScenario,
+    createNewConversationIfNeeded,
+    sendMessage
+  ])
+
+  const handleDropdownOpen = useCallback((event: React.MouseEvent<HTMLElement>) => {
     setDropdownAnchor(event.currentTarget)
-  }
+  }, [])
 
-  const handleDropdownClose = () => {
+  const handleDropdownClose = useCallback(() => {
     setDropdownAnchor(null)
-  }
+  }, [])
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
-  }
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        e.stopPropagation()
 
-  const handleClose = () => {
+        if (e.currentTarget instanceof HTMLTextAreaElement) {
+          const form = e.currentTarget.closest('form')
+          if (form) {
+            e.stopPropagation()
+          }
+        }
+
+        if (!isSendingRef.current && !creatingConversationRef.current) {
+          handleSend()
+        }
+      }
+    },
+    [handleSend]
+  )
+
+  const handleClose = useCallback(() => {
     onClose()
-  }
+  }, [onClose])
 
-  const handleMinimize = () => {
-    onClose()
-  }
-
-  const handleNewConversation = async () => {
+  const handleNewConversation = useCallback(async () => {
     setCurrentScenario(null)
     await startNewConversation()
-  }
+  }, [startNewConversation])
 
-  const userAvatar = session?.user?.image || null
-  const displayName = userFullName || session?.user?.name || 'You'
+  // Memoize user display info
+  const userAvatar = useMemo(() => session?.user?.image || null, [session?.user?.image])
+  const displayName = useMemo(() => userFullName || session?.user?.name || 'You', [userFullName, session?.user?.name])
+
+  // Handle send button click
+  const handleSendButtonClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (!isSendingRef.current) {
+        handleSend()
+      }
+    },
+    [handleSend]
+  )
 
   if (!open) return null
 
@@ -681,8 +791,8 @@ const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
               {inputValue.trim() ? (
                 <ActionButton
                   size='small'
-                  onClick={handleSend}
-                  disabled={isLoading || !connected || isCreatingConversation}
+                  onClick={handleSendButtonClick}
+                  disabled={isLoading || !connected || isCreatingConversation || isSendingRef.current}
                   sx={{
                     color: inputValue.trim() ? 'primary.main' : 'action.disabled'
                   }}
@@ -690,7 +800,10 @@ const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
                   <Send size={18} />
                 </ActionButton>
               ) : (
-                <ActionButton size='small' disabled={!connected || isLoading || isCreatingConversation}>
+                <ActionButton
+                  size='small'
+                  disabled={!connected || isLoading || isCreatingConversation || isSendingRef.current}
+                >
                   <Send size={18} style={{ opacity: 0.5 }} />
                 </ActionButton>
               )}

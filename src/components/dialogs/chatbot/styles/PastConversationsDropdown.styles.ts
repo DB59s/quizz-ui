@@ -3,7 +3,6 @@ import Box from '@mui/material/Box'
 import FormControl from '@mui/material/FormControl'
 import MenuItem from '@mui/material/MenuItem'
 import Typography from '@mui/material/Typography'
-import Chip from '@mui/material/Chip'
 import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
 
@@ -39,13 +38,22 @@ export const StyledFormControl = styled(FormControl)(({ theme }) => ({
 export const StyledMenuItem = styled(MenuItem)(({ theme }) => ({
   fontSize: '13px',
   transition: 'all 0.2s ease',
+  padding: theme.spacing(1, 1.5),
+  borderRadius: '8px',
+  margin: theme.spacing(0.25, 0.5),
   '&:hover': {
-    backgroundColor: theme.palette.primary.main + '15'
+    backgroundColor: theme.palette.primary.main + '15',
+    '& .conversation-actions': {
+      opacity: 1
+    }
   },
   '&.Mui-selected': {
     backgroundColor: theme.palette.primary.main + '25',
     '&:hover': {
       backgroundColor: theme.palette.primary.main + '35'
+    },
+    '& .conversation-actions': {
+      opacity: 1
     }
   }
 }))
@@ -76,30 +84,41 @@ export const ConversationItemBox = styled(Box)(({ theme }) => ({
   alignItems: 'center',
   justifyContent: 'space-between',
   width: '100%',
-  gap: theme.spacing(1)
+  gap: theme.spacing(1),
+  padding: theme.spacing(0.5, 0)
+}))
+
+export const ConversationContent = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  flex: 1,
+  minWidth: 0,
+  gap: theme.spacing(0.25)
 }))
 
 export const ConversationTitle = styled(Typography)(({ theme }) => ({
   fontSize: '13px',
-  fontWeight: 500,
+  fontWeight: 600,
   color: theme.palette.text.primary,
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
-  flex: 1
+  lineHeight: 1.4
 }))
 
-export const ConversationDate = styled(Chip)(({ theme }) => ({
-  height: '20px',
+export const ConversationDate = styled(Typography)(({ theme }) => ({
   fontSize: '11px',
-  fontWeight: 500,
-  backgroundColor: theme.palette.primary.main + '15',
-  color: theme.palette.primary.main,
-  '& .MuiChip-icon': {
-    marginRight: 4,
-    fontSize: '12px',
-    color: theme.palette.primary.main
-  }
+  fontWeight: 400,
+  color: theme.palette.text.secondary,
+  lineHeight: 1.2
+}))
+
+export const ConversationActions = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(0.25),
+  opacity: 0,
+  transition: 'opacity 0.2s ease'
 }))
 
 export const Container = styled(Box)({
@@ -133,25 +152,29 @@ export const NewConversationButton = styled(Button)(({ theme }) => ({
 
 export const DeleteButton = styled(IconButton)(({ theme }) => ({
   padding: theme.spacing(0.5),
-  width: '24px',
-  height: '24px',
+  width: '28px',
+  height: '28px',
   color: theme.palette.error.main,
   transition: 'all 0.2s ease',
+  borderRadius: '6px',
   '&:hover': {
     backgroundColor: theme.palette.error.main + '15',
-    color: theme.palette.error.dark
+    color: theme.palette.error.dark,
+    transform: 'scale(1.1)'
   }
 }))
 
 export const EditButton = styled(IconButton)(({ theme }) => ({
   padding: theme.spacing(0.5),
-  width: '24px',
-  height: '24px',
+  width: '28px',
+  height: '28px',
   color: theme.palette.primary.main,
   transition: 'all 0.2s ease',
+  borderRadius: '6px',
   '&:hover': {
     backgroundColor: theme.palette.primary.main + '15',
-    color: theme.palette.primary.dark
+    color: theme.palette.primary.dark,
+    transform: 'scale(1.1)'
   }
 }))
 

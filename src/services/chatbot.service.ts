@@ -65,8 +65,13 @@ export const chatbotService = {
   /**
    * Get all conversations for current user
    */
-  getConversations: async () => {
-    const response = await apiClient.get<GetConversationsResponse>(`${CHATBOT_API_BASE}/api/v1/chatbot/conversations`)
+  getConversations: async (limit?: number, offset?: number) => {
+    const params = new URLSearchParams()
+    if (limit) params.append('limit', limit.toString())
+    if (offset !== undefined) params.append('offset', offset.toString())
+    const queryString = params.toString()
+    const url = `${CHATBOT_API_BASE}/api/v1/chatbot/conversations${queryString ? `?${queryString}` : ''}`
+    const response = await apiClient.get<GetConversationsResponse>(url)
     return response.data
   },
 

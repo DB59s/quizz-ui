@@ -306,7 +306,8 @@ export function useChatbot(accountId: string | null | undefined) {
   const sendMessage = useCallback(
     (
       prompt: string,
-      context?: ChatContext | { force_type?: 'question_bank' | 'knowledge_base' | 'general'; question_id?: string }
+      context?: ChatContext | { force_type?: 'question_bank' | 'knowledge_base' | 'general'; question_id?: string },
+      explicitConversationId?: string | null
     ) => {
 
 
@@ -350,9 +351,11 @@ export function useChatbot(accountId: string | null | undefined) {
         prompt: prompt.trim()
       }
 
+      // Use explicit conversation ID if provided, otherwise use the one from state
+      const convIdToUse = explicitConversationId !== undefined ? explicitConversationId : conversationId
       // Only add conversation_id if it exists
-      if (conversationId) {
-        request.conversation_id = conversationId
+      if (convIdToUse) {
+        request.conversation_id = convIdToUse
       }
 
       // Only add context if provided
