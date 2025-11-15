@@ -20,6 +20,7 @@ import HorizontalFooter from '@components/layout/horizontal/Footer'
 import Customizer from '@core/components/customizer'
 import ScrollToTop from '@core/components/scroll-to-top'
 import AuthGuard from '@/hocs/AuthGuard'
+import ChatbotButton from '@components/dialogs/chatbot/ChatbotButton'
 
 // Config Imports
 import { i18n } from '@configs/i18n'
@@ -67,6 +68,7 @@ const Layout = async (props: ChildrenType & { params: Promise<{ lang: Locale }> 
             <i className='tabler-arrow-up' />
           </Button>
         </ScrollToTop>
+        <ChatbotButton />
         <Customizer dir={direction} />
       </AuthGuard>
     </Providers>

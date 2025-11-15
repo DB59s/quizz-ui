@@ -1,0 +1,927 @@
+'use client'
+
+// React Imports
+import { useState, useRef, useEffect } from 'react'
+
+// MUI Imports
+import TextField from '@mui/material/TextField'
+import IconButton from '@mui/material/IconButton'
+import Box from '@mui/material/Box'
+import Typography from '@mui/material/Typography'
+import CircularProgress from '@mui/material/CircularProgress'
+import Alert from '@mui/material/Alert'
+import Avatar from '@mui/material/Avatar'
+import Menu from '@mui/material/Menu'
+import MenuItem from '@mui/material/MenuItem'
+import Button from '@mui/material/Button'
+import { styled, useTheme } from '@mui/material/styles'
+
+// Icons
+import { Send, X, Bot, User, Minimize2, Maximize2, Trash2, ArrowDown, ChevronDown, ChevronUp, Crosshair } from 'lucide-react'
+
+// Component Imports
+import { useChatbot } from '@/hooks/useChatbot'
+import { useSession } from 'next-auth/react'
+import TestScenariosPanel, { type ScenarioType } from './TestScenariosPanel'
+import PastConversationsDropdown from './PastConversationsDropdown'
+import { type Conversation } from '@/services/chatbot.service'
+
+// ============= STYLED COMPONENTS (Tiki Style) =============
+
+const Header = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: theme.spacing(1.5, 2),
+  background: `linear-gradient(135deg, ${theme.palette.primary.main}15 0%, ${theme.palette.primary.main}08 100%)`,
+  borderBottom: `1.5px solid ${theme.palette.primary.main}20`,
+  minHeight: '60px',
+  gap: theme.spacing(1),
+  boxShadow: `0 2px 8px ${theme.palette.primary.main}10`
+}))
+
+const HeaderLeft = styled(Box)({
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  flex: 1
+})
+
+const HeaderRight = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(0.25)
+}))
+
+const MessagesContainer = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: theme.spacing(0.5),
+  flex: 1,
+  overflowY: 'auto',
+  padding: theme.spacing(2),
+  backgroundColor: theme.palette.background.paper,
+  '&::-webkit-scrollbar': {
+    width: '6px'
+  },
+  '&::-webkit-scrollbar-track': {
+    background: 'transparent'
+  },
+  '&::-webkit-scrollbar-thumb': {
+    background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)',
+    borderRadius: '3px',
+    '&:hover': {
+      background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'
+    }
+  }
+}))
+
+const MessageRow = styled(Box, {
+  shouldForwardProp: prop => prop !== 'isUser'
+})<{ isUser?: boolean }>(({ theme, isUser }) => ({
+  display: 'flex',
+  alignItems: 'flex-start',
+  gap: 4,
+  marginBottom: theme.spacing(1.5),
+  flexDirection: isUser ? 'row-reverse' : 'row',
+  width: '100%'
+}))
+
+const MessageBubble = styled(Box, {
+  shouldForwardProp: prop => prop !== 'isUser'
+})<{ isUser?: boolean }>(({ theme, isUser }) => ({
+  padding: theme.spacing(1, 1.5),
+  maxWidth: isUser ? 'calc(100% - 8px)' : 'calc(100% - 40px)',
+  backgroundColor: isUser ? theme.palette.primary.main : theme.palette.action.hover,
+  color: isUser ? '#ffffff' : theme.palette.text.primary,
+  borderRadius: isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+  wordBreak: 'break-word',
+  whiteSpace: 'pre-wrap',
+  fontSize: '14px',
+  lineHeight: '20px',
+  marginLeft: isUser ? '35px' : '0',
+  boxShadow: isUser
+    ? `0 1px 2px ${theme.palette.primary.main}22`
+    : `0 1px 2px ${theme.palette.action.hover}`
+}))
+
+const InputContainer = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  backgroundColor: theme.palette.background.paper,
+  borderTop: `1px solid ${theme.palette.divider}`
+}))
+
+const InputWrapperContainer = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'flex-end',
+  gap: theme.spacing(0.5),
+  padding: theme.spacing(1, 1.5)
+}))
+
+const InputWrapper = styled(Box)(({ theme }) => ({
+  flex: 1,
+  display: 'flex',
+  alignItems: 'center',
+  backgroundColor: theme.palette.background.paper,
+  borderRadius: '24px',
+  padding: theme.spacing(1, 1.75),
+  border: `1.5px solid ${theme.palette.divider}`,
+  minHeight: '44px',
+  maxHeight: '120px',
+  overflowY: 'auto',
+  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+  '&:hover': {
+    borderColor: theme.palette.primary.main,
+    boxShadow: `0 2px 8px ${theme.palette.primary.main}15`
+  },
+  '&:focus-within': {
+    borderColor: theme.palette.primary.main,
+    boxShadow: `0 0 0 3px ${theme.palette.primary.main}20`
+  },
+  '& .MuiTextField-root': {
+    width: '100%'
+  }
+}))
+
+const ActionButton = styled(IconButton)(({ theme }) => ({
+  color: theme.palette.text.secondary,
+  padding: theme.spacing(0.75),
+  minWidth: '40px',
+  minHeight: '40px',
+  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+  borderRadius: '10px',
+  '&:hover': {
+    backgroundColor: theme.palette.primary.main + '15',
+    color: theme.palette.primary.main,
+    transform: 'translateY(-2px)'
+  },
+  '&:active': {
+    transform: 'scale(0.95) translateY(0)'
+  },
+  '&.Mui-disabled': {
+    color: theme.palette.action.disabled,
+    opacity: 0.5
+  }
+}))
+
+const ChatWidget = styled(Box)(({ theme }) => ({
+  position: 'fixed',
+  bottom: theme.spacing(4),
+  right: theme.spacing(4),
+  width: '550px',
+  height: '680px',
+  maxHeight: '85vh',
+  display: 'flex',
+  flexDirection: 'column',
+  backgroundColor: theme.palette.background.paper,
+  borderRadius: '16px',
+  boxShadow: `0 8px 32px ${theme.palette.primary.main}20`,
+  zIndex: 1300,
+  overflow: 'hidden',
+  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+  border: `1px solid ${theme.palette.primary.main}10`,
+  [theme.breakpoints.down('sm')]: {
+    width: 'calc(100vw - 32px)',
+    height: 'calc(100vh - 100px)',
+    bottom: theme.spacing(2),
+    right: theme.spacing(2),
+    left: theme.spacing(2)
+  }
+}))
+
+const ChatContent = styled(Box)({
+  flex: 1,
+  display: 'flex',
+  flexDirection: 'column',
+  overflow: 'hidden'
+})
+
+const TypingIndicator = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(0.75),
+  padding: theme.spacing(1, 1.75),
+  backgroundColor: theme.palette.action.hover,
+  borderRadius: '20px',
+  width: 'fit-content',
+  boxShadow: `0 2px 8px ${theme.palette.action.hover}20`,
+  animation: 'slideUp 0.3s ease-out'
+}))
+
+const TypingDot = styled(Box)(({ theme }) => ({
+  width: 8,
+  height: 8,
+  borderRadius: '50%',
+  backgroundColor: theme.palette.text.secondary,
+  animation: 'typing 1.4s infinite',
+  '&:nth-of-type(2)': {
+    animationDelay: '0.2s'
+  },
+  '&:nth-of-type(3)': {
+    animationDelay: '0.4s'
+  },
+  '@keyframes typing': {
+    '0%, 60%, 100%': {
+      transform: 'translateY(0)'
+    },
+    '30%': {
+      transform: 'translateY(-10px)'
+    }
+  }
+}))
+
+const DropdownButton = styled(Button)(({ theme }) => ({
+  textTransform: 'none',
+  color: theme.palette.text.primary,
+  fontSize: '14px',
+  fontWeight: 500,
+  padding: theme.spacing(0.75, 1),
+  minWidth: 'auto',
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(0.5),
+  transition: 'all 0.2s ease',
+  '&:hover': {
+    backgroundColor: theme.palette.action.hover,
+    color: theme.palette.primary.main
+  },
+  '&:active': {
+    transform: 'scale(0.98)'
+  }
+}))
+
+const SuggestedQuestionItem = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(1.5, 2),
+  borderRadius: '10px',
+  backgroundColor: theme.palette.action.hover,
+  border: `1.5px solid ${theme.palette.divider}`,
+  cursor: 'pointer',
+  transition: 'all 0.25s ease',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  '&:hover': {
+    backgroundColor: theme.palette.action.selected,
+    borderColor: theme.palette.primary.main,
+    transform: 'translateX(4px)',
+    boxShadow: `0 2px 8px ${theme.palette.primary.main}22`
+  }
+}))
+
+const ScrollToBottomButton = styled(IconButton)(({ theme }) => ({
+  position: 'absolute',
+  bottom: 80,
+  right: 16,
+  width: 44,
+  height: 44,
+  backgroundColor: theme.palette.background.paper,
+  boxShadow: `0 4px 16px ${theme.palette.primary.main}25`,
+  border: `1.5px solid ${theme.palette.primary.main}30`,
+  color: theme.palette.primary.main,
+  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+  animation: 'bounce 2s infinite',
+  '@keyframes bounce': {
+    '0%, 100%': {
+      transform: 'translateY(0)',
+      opacity: 1
+    },
+    '50%': {
+      transform: 'translateY(-6px)',
+      opacity: 0.8
+    }
+  },
+  '&:hover': {
+    backgroundColor: theme.palette.primary.main + '15',
+    color: theme.palette.primary.main,
+    transform: 'scale(1.1)',
+    boxShadow: `0 6px 20px ${theme.palette.primary.main}35`
+  }
+}))
+
+const FooterText = styled(Typography)(({ theme }) => ({
+  fontSize: '11px',
+  color: theme.palette.text.disabled,
+  textAlign: 'center',
+  padding: theme.spacing(0.5, 2),
+  fontStyle: 'italic'
+}))
+
+const WelcomeMessageCard = styled(Box)(({ theme }) => ({
+  background: `linear-gradient(135deg, ${theme.palette.primary.main}10 0%, ${theme.palette.primary.main}05 100%)`,
+  borderRadius: '14px',
+  padding: theme.spacing(2.5),
+  marginBottom: theme.spacing(1.5),
+  border: `1.5px solid ${theme.palette.primary.main}25`,
+  boxShadow: `0 2px 12px ${theme.palette.primary.main}12`,
+  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+}))
+
+const SenderName = styled(Typography)(({ theme }) => ({
+  fontSize: '13px',
+  fontWeight: 600,
+  color: theme.palette.text.primary,
+  marginBottom: 4
+}))
+
+const QuestionBankPanel = styled(Box, {
+  shouldForwardProp: prop => prop !== 'active' && prop !== 'expanded'
+})<{ active?: boolean; expanded?: boolean }>(({ theme, active, expanded }) => ({
+  display: active ? 'block' : 'none',
+  background: `linear-gradient(135deg, ${theme.palette.primary.main}12 0%, ${theme.palette.primary.main}08 100%)`,
+  border: `1.5px solid ${theme.palette.primary.main}30`,
+  borderRadius: '14px',
+  padding: theme.spacing(expanded ? 2 : 1.5),
+  margin: theme.spacing(1.5, 2),
+  boxShadow: `0 2px 12px ${theme.palette.primary.main}15`,
+  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+}))
+
+const QuestionBankHeader = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  cursor: 'pointer',
+  userSelect: 'none'
+}))
+
+const QuestionBankTitle = styled(Typography)(({ theme }) => ({
+  fontSize: '16px',
+  color: theme.palette.primary.main,
+  fontWeight: 600,
+  flex: 1
+}))
+
+const QuestionBankContent = styled(Box, {
+  shouldForwardProp: prop => prop !== 'expanded'
+})<{ expanded?: boolean }>(({ theme, expanded }) => ({
+  maxHeight: expanded ? '1000px' : '0',
+  overflow: 'hidden',
+  transition: 'max-height 0.3s ease, opacity 0.3s ease',
+  opacity: expanded ? 1 : 0,
+  marginTop: expanded ? theme.spacing(1.5) : 0
+}))
+
+const FormGroup = styled(Box)(({ theme }) => ({
+  marginBottom: theme.spacing(1.5)
+}))
+
+const FormLabel = styled(Typography)(({ theme }) => ({
+  display: 'block',
+  fontSize: '13px',
+  fontWeight: 600,
+  color: theme.palette.text.primary,
+  marginBottom: theme.spacing(0.5)
+}))
+
+const FormActions = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  gap: theme.spacing(1),
+  marginTop: theme.spacing(1.5)
+}))
+
+// ============= MAIN COMPONENT =============
+
+type ChatbotDialogProps = {
+  open: boolean
+  onClose: () => void
+}
+
+const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
+  const theme = useTheme()
+  const { data: session, status } = useSession()
+
+  // Function to decode JWT token and get account_id
+  const getAccountIdFromToken = (token: string | undefined): string | null => {
+    if (!token) return null
+
+    try {
+      // JWT token format: header.payload.signature
+      // We need to decode the payload (second part)
+      const parts = token.split('.')
+      if (parts.length !== 3) return null
+
+      // Decode base64 payload
+      const payload = JSON.parse(atob(parts[1]))
+
+      // Try different possible field names
+      return payload.account_id || payload.accountId || payload.id || payload.sub || null
+    } catch (error) {
+      return null
+    }
+  }
+
+  // Try multiple ways to get account ID
+  const accountId =
+    (session?.user as any)?.id ||
+    (session?.user as any)?.accountId ||
+    (session as any)?.accountId ||
+    (session as any)?.id ||
+    getAccountIdFromToken(session?.accessToken) ||
+    null
+
+  // Debug logging
+  useEffect(() => {
+    if (session?.accessToken) {
+      const tokenAccountId = getAccountIdFromToken(session.accessToken)
+    }
+  }, [session, status, accountId])
+
+  const [inputValue, setInputValue] = useState('')
+  const [dropdownAnchor, setDropdownAnchor] = useState<null | HTMLElement>(null)
+  const [showScrollButton, setShowScrollButton] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
+
+  const { connected, messages, isLoading, error, sendMessage, startNewConversation, selectConversation } = useChatbot(accountId)
+
+  const [currentScenario, setCurrentScenario] = useState<ScenarioType | null>(null)
+  const [questionId, setQuestionId] = useState('')
+  const [questionContent, setQuestionContent] = useState('')
+  const [isQuestionBankExpanded, setIsQuestionBankExpanded] = useState(true)
+
+  // Sample questions for each scenario
+  const sampleQuestions = {
+    question_bank: [
+      'Có bao nhiêu câu hỏi về hệ điều hành?',
+      'Cho tôi xem câu hỏi về tiến trình',
+      'Tìm câu hỏi khó về bộ nhớ'
+    ],
+    knowledge_base: ['Tiến trình trong hệ điều hành là gì?', 'Giải thích về deadlock', 'Phân biệt tiến trình và luồng'],
+    general: ['Hôm nay thời tiết thế nào?', 'Kể cho tôi một câu chuyện vui', 'Bạn có thể làm gì?']
+  }
+
+  // Auto scroll to bottom when new message arrives
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, isLoading])
+
+  // Handle scroll to show/hide scroll button
+  useEffect(() => {
+    const container = messagesContainerRef.current
+    if (!container) return
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100
+      setShowScrollButton(!isNearBottom && messages.length > 0)
+    }
+
+    container.addEventListener('scroll', handleScroll)
+    return () => container.removeEventListener('scroll', handleScroll)
+  }, [messages.length])
+
+  const handleScrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  const handleSuggestedQuestionClick = (question: string) => {
+    setInputValue(question)
+    inputRef.current?.focus()
+  }
+
+  const handleScenarioChange = (scenario: ScenarioType | null) => {
+    setCurrentScenario(scenario)
+
+    if (scenario === null) {
+      // Clear all when deselecting
+      setQuestionId('')
+      setQuestionContent('')
+      setInputValue('')
+      setIsQuestionBankExpanded(true)
+    } else if (scenario === 'question_bank') {
+      // Clear form when switching to question_bank
+      setQuestionId('')
+      setQuestionContent('')
+      // Auto expand when selecting question_bank
+      setIsQuestionBankExpanded(true)
+    } else {
+      // Auto-fill a random sample question for other scenarios
+      const samples = sampleQuestions[scenario]
+      const randomSample = samples[Math.floor(Math.random() * samples.length)]
+      setInputValue(randomSample)
+      inputRef.current?.focus()
+      // Collapse question bank panel when switching to other scenarios
+      setIsQuestionBankExpanded(false)
+    }
+  }
+
+  const handleToggleQuestionBank = () => {
+    setIsQuestionBankExpanded(prev => !prev)
+  }
+
+  const handleConversationSelect = async (conversation: Conversation, messages: any[]) => {
+    // Load messages for the selected conversation
+    await selectConversation(conversation.id)
+  }
+
+  const handleSubmitQuestionBank = () => {
+    if (!questionId.trim() && !questionContent.trim()) {
+      // Error will be shown via useChatbot hook
+      return
+    }
+
+    if (!connected || isLoading) {
+      return
+    }
+
+    // Build the query message
+    let queryMessage = ''
+    if (questionId && questionContent) {
+      queryMessage = `Question ID: ${questionId}\nNội dung: ${questionContent}`
+    } else if (questionId) {
+      queryMessage = `Tìm thông tin về câu hỏi có ID: ${questionId}`
+    } else {
+      queryMessage = questionContent
+    }
+
+    // Prepare context with question_id if provided
+    const context: { force_type: 'question_bank'; question_id?: string } = {
+      force_type: 'question_bank'
+    }
+
+    if (questionId.trim()) {
+      context.question_id = questionId.trim()
+    }
+
+    // Send message with context
+    sendMessage(queryMessage, context)
+
+    // Clear form
+    setQuestionId('')
+    setQuestionContent('')
+  }
+
+  const handleClearQuestionBankForm = () => {
+    setQuestionId('')
+    setQuestionContent('')
+  }
+
+  // Focus input when dialog opens
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => {
+        inputRef.current?.focus()
+      }, 100)
+    }
+  }, [open])
+
+  const handleSend = () => {
+
+    if (!inputValue.trim()) {
+
+      return
+    }
+
+    if (isLoading) {
+
+      return
+    }
+
+    if (!connected) {
+
+      // Error will be shown from useChatbot hook
+      return
+    }
+
+    // Prepare context with force_type if scenario is selected
+    const context = currentScenario ? { force_type: currentScenario } : undefined
+
+
+    sendMessage(inputValue, context)
+    setInputValue('')
+  }
+
+  const handleDropdownOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setDropdownAnchor(event.currentTarget)
+  }
+
+  const handleDropdownClose = () => {
+    setDropdownAnchor(null)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSend()
+    }
+  }
+
+  const handleClose = () => {
+    onClose()
+  }
+
+  const handleMinimize = () => {
+    onClose()
+  }
+
+  const handleNewConversation = async () => {
+    setCurrentScenario(null)
+    await startNewConversation()
+  }
+
+  const userAvatar = session?.user?.image || null
+  const userName = session?.user?.name || 'You'
+
+  if (!open) return null
+
+  return (
+    <ChatWidget>
+      {/* Chat Content */}
+      <ChatContent>
+        {/* Header */}
+        <Header>
+          <HeaderLeft>
+            <Avatar
+              sx={{
+                width: 36,
+                height: 36,
+                background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.light} 100%)`,
+                flexShrink: 0,
+                mr: 1,
+                boxShadow: `0 2px 8px ${theme.palette.primary.main}30`
+              }}
+            >
+              <Bot size={20} style={{ color: '#ffffff' }} />
+            </Avatar>
+            <Box>
+              <Typography variant='h6' sx={{ fontSize: '16px', fontWeight: 700, color: 'text.primary', mb: 0.25 }}>
+                Trợ Lý AI
+              </Typography>
+              <Typography sx={{ fontSize: '11px', color: 'text.secondary', fontWeight: 500 }}>
+                Sẵn sàng hỗ trợ
+              </Typography>
+            </Box>
+          </HeaderLeft>
+          <HeaderRight>
+            <ActionButton size='small' onClick={handleNewConversation} title='Xóa lịch sử chat'>
+              <Trash2 size={18} />
+            </ActionButton>
+            <ActionButton size='small' onClick={handleMinimize} title='Mở rộng khung chat'>
+              <Maximize2 size={18} />
+            </ActionButton>
+            <ActionButton size='small' onClick={handleClose} title='Đóng khung chat'>
+              <X size={18} />
+            </ActionButton>
+          </HeaderRight>
+        </Header>
+
+        {/* Header Section - Static (no overflow) */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', overflow: 'visible' }}>
+          {error && (
+            <Alert severity='error' sx={{ m: 1.5, mb: 0, borderRadius: '8px' }}>
+              {error}
+            </Alert>
+          )}
+
+          {/* Past Conversations Dropdown */}
+          <Box sx={{ px: 2, py: 1.5, borderBottom: `1px solid ${theme.palette.divider}`, display: 'flex', alignItems: 'center', position: 'relative', zIndex: 10 }}>
+            <PastConversationsDropdown onConversationSelect={handleConversationSelect} />
+          </Box>
+
+          {/* Test Scenarios Panel */}
+          <TestScenariosPanel
+            currentScenario={currentScenario}
+            onScenarioChange={handleScenarioChange}
+          />
+
+          {/* Question Bank Panel */}
+          <QuestionBankPanel active={currentScenario === 'question_bank'} expanded={isQuestionBankExpanded}>
+            <QuestionBankHeader onClick={handleToggleQuestionBank}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
+                <Crosshair size={20} style={{ color: theme.palette.primary.main }} />
+                <QuestionBankTitle>Question Bank - Nhập thông tin câu hỏi</QuestionBankTitle>
+              </Box>
+              <IconButton size='small' sx={{ color: 'primary.main' }}>
+                {isQuestionBankExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              </IconButton>
+            </QuestionBankHeader>
+            <QuestionBankContent expanded={isQuestionBankExpanded}>
+              <FormGroup>
+                <FormLabel>ID Câu hỏi (Question ID):</FormLabel>
+                <TextField
+                  fullWidth
+                  size='small'
+                  placeholder='Ví dụ: 6734c1f3eab52d34087cb4aa'
+                  value={questionId}
+                  onChange={e => setQuestionId(e.target.value)}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      fontSize: '14px'
+                    }
+                  }}
+                />
+              </FormGroup>
+              <FormGroup>
+                <FormLabel>Nội dung câu hỏi (Question Content):</FormLabel>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={3}
+                  size='small'
+                  placeholder='Ví dụ: Tiến trình trong hệ điều hành là gì?'
+                  value={questionContent}
+                  onChange={e => setQuestionContent(e.target.value)}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      fontSize: '14px'
+                    }
+                  }}
+                />
+              </FormGroup>
+              <FormActions>
+                <Button
+                  variant='contained'
+                  fullWidth
+                  onClick={handleSubmitQuestionBank}
+                  disabled={(!questionId.trim() && !questionContent.trim()) || !connected || isLoading}
+                  sx={{ textTransform: 'none', fontWeight: 600 }}
+                >
+                  Gửi câu hỏi
+                </Button>
+                <Button
+                  variant='outlined'
+                  onClick={handleClearQuestionBankForm}
+                  sx={{ textTransform: 'none', fontWeight: 600 }}
+                >
+                  Xóa
+                </Button>
+              </FormActions>
+            </QuestionBankContent>
+          </QuestionBankPanel>
+        </Box>
+
+        {/* Messages Section - Scrollable (overflow hidden) */}
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+          <MessagesContainer ref={messagesContainerRef} sx={{ position: 'relative' }}>
+            {messages.length === 0 && connected && (
+              <WelcomeMessageCard>
+                <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                  <Avatar
+                    sx={{
+                      width: 40,
+                      height: 40,
+                      bgcolor: 'primary.main',
+                      flexShrink: 0
+                    }}
+                  >
+                    <Bot size={24} style={{ color: theme.palette.primary.contrastText }} />
+                  </Avatar>
+                  <Box sx={{ flex: 1 }}>
+                    <SenderName>Trợ lý AI</SenderName>
+                    <Typography
+                      variant='body2'
+                      sx={{ color: 'text.secondary', lineHeight: 1.5, fontSize: '14px', mb: 1 }}
+                    >
+                      Xin chào! Tôi là chatbot hỗ trợ học tập với 3 chế độ:
+                    </Typography>
+                    <Typography
+                      variant='body2'
+                      sx={{ color: 'text.secondary', lineHeight: 1.5, fontSize: '14px', mb: 1 }}
+                    >
+                      <strong>Question Bank:</strong> Hỏi về câu hỏi trong ngân hàng đề
+                      <br />
+                      <strong>Knowledge Base:</strong> Hỏi về kiến thức trong tài liệu
+                      <br />
+                      <strong>General Chat:</strong> Trò chuyện tự do
+                    </Typography>
+                    <Typography
+                      variant='body2'
+                      sx={{ color: 'text.secondary', lineHeight: 1.5, fontSize: '13px', opacity: 0.8 }}
+                    >
+                      Hãy chọn một scenario ở trên hoặc gõ câu hỏi trực tiếp!
+                    </Typography>
+                  </Box>
+                </Box>
+              </WelcomeMessageCard>
+            )}
+
+            {messages.map((message, index) => (
+              <MessageRow key={index} isUser={message.role === 'user'}>
+                <Avatar
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    background: message.role === 'user'
+                      ? `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.light} 100%)`
+                      : theme.palette.action.hover,
+                    flexShrink: 0,
+                    boxShadow: message.role === 'user' ? `0 2px 8px ${theme.palette.primary.main}30` : 'none'
+                  }}
+                >
+                  {message.role === 'user' ? (
+                    userAvatar ? (
+                      <img
+                        src={userAvatar}
+                        alt={userName}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                      />
+                    ) : (
+                      <User size={16} />
+                    )
+                  ) : (
+                    <Bot size={16} />
+                  )}
+                </Avatar>
+                <Box>
+                  {!message.role || (message.role === 'assistant' && <SenderName>Chatbot</SenderName>)}
+                  <MessageBubble isUser={message.role === 'user'}>
+                    <Typography sx={{ fontSize: '14px', lineHeight: '20px' }}>{message.content}</Typography>
+                  </MessageBubble>
+                </Box>
+              </MessageRow>
+            ))}
+
+            {isLoading && (
+              <MessageRow>
+                <Avatar
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    bgcolor: 'action.hover',
+                    flexShrink: 0
+                  }}
+                >
+                  <Bot size={18} />
+                </Avatar>
+                <TypingIndicator>
+                  <TypingDot />
+                  <TypingDot />
+                  <TypingDot />
+                </TypingIndicator>
+              </MessageRow>
+            )}
+
+            <div ref={messagesEndRef} />
+            {showScrollButton && (
+              <ScrollToBottomButton onClick={handleScrollToBottom} size='small'>
+                <ArrowDown size={20} />
+              </ScrollToBottomButton>
+            )}
+          </MessagesContainer>
+
+          {/* Input Area*/}
+          <InputContainer>
+            <InputWrapperContainer>
+              <InputWrapper>
+                <TextField
+                  inputRef={inputRef}
+                  fullWidth
+                  placeholder={connected ? 'Nhập nội dung chat' : 'Đang kết nối...'}
+                  value={inputValue}
+                  onChange={e => setInputValue(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  disabled={!connected || isLoading}
+                  variant='standard'
+                  multiline
+                  maxRows={4}
+                  autoFocus={false}
+                  InputProps={{
+                    disableUnderline: true,
+                    sx: {
+                      fontSize: '14px',
+                      '& textarea': {
+                        padding: '8px 0',
+                        maxHeight: '100px',
+                        overflowY: 'auto',
+                        resize: 'none'
+                      }
+                    }
+                  }}
+                  sx={{
+                    width: '100%',
+                    '& .MuiInputBase-root': {
+                      fontSize: '14px'
+                    },
+                    '& .MuiInputBase-input': {
+                      padding: 0
+                    }
+                  }}
+                />
+              </InputWrapper>
+              {inputValue.trim() ? (
+                <ActionButton
+                  size='small'
+                  onClick={handleSend}
+                  disabled={isLoading || !connected}
+                  sx={{
+                    color: inputValue.trim() ? 'primary.main' : 'action.disabled'
+                  }}
+                >
+                  <Send size={18} />
+                </ActionButton>
+              ) : (
+                <ActionButton size='small' disabled={!connected || isLoading}>
+                  <Send size={18} style={{ opacity: 0.5 }} />
+                </ActionButton>
+              )}
+            </InputWrapperContainer>
+          </InputContainer>
+        </Box>
+      </ChatContent>
+    </ChatWidget>
+  )
+}
+
+export default ChatbotDialog
