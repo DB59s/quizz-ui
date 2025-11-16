@@ -12,6 +12,7 @@ import { Bot } from 'lucide-react'
 
 // Component Imports
 import ChatbotDialog from './ChatbotDialog'
+import { useChatbotContext } from '@/contexts/ChatbotContext'
 
 // Styled Component
 const StyledFab = styled(Fab)(({ theme }) => ({
@@ -30,24 +31,34 @@ const StyledFab = styled(Fab)(({ theme }) => ({
 }))
 
 const ChatbotButton = () => {
-  const [open, setOpen] = useState(false)
+  const [localOpen, setLocalOpen] = useState(false)
+  const { open: contextOpen, initialQuestionContent, initialScenario, closeChatbot } = useChatbotContext()
 
   const handleToggle = () => {
-    setOpen(prev => !prev)
+    setLocalOpen(prev => !prev)
   }
 
   const handleClose = () => {
-    setOpen(false)
+    setLocalOpen(false)
+    closeChatbot()
   }
+
+  // Use context open if available, otherwise use local state
+  const isOpen = contextOpen || localOpen
 
   return (
     <>
-      {!open && (
+      {!isOpen && (
         <StyledFab color='primary' aria-label='chatbot' onClick={handleToggle}>
           <Bot size={24} />
         </StyledFab>
       )}
-      <ChatbotDialog open={open} onClose={handleClose} />
+      <ChatbotDialog 
+        open={isOpen} 
+        onClose={handleClose}
+        initialQuestionContent={initialQuestionContent}
+        initialScenario={initialScenario}
+      />
     </>
   )
 }

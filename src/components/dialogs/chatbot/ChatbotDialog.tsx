@@ -74,9 +74,11 @@ import {
 type ChatbotDialogProps = {
   open: boolean
   onClose: () => void
+  initialQuestionContent?: string
+  initialScenario?: ScenarioType | null
 }
 
-const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
+const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialScenario }: ChatbotDialogProps) => {
   const theme = useTheme()
   const { data: session, status } = useSession()
 
@@ -140,6 +142,21 @@ const ChatbotDialog = ({ open, onClose }: ChatbotDialogProps) => {
   const [conversationError, setConversationError] = useState<string | null>(null)
   const cachedConversationsRef = useRef<Conversation[]>([])
   const hasLoadedConversationsRef = useRef(false)
+
+  // Handle initial values when dialog opens
+  useEffect(() => {
+    if (open) {
+      if (initialScenario) {
+        setCurrentScenario(initialScenario)
+        if (initialScenario === 'question_bank') {
+          setIsQuestionBankExpanded(true)
+        }
+      }
+      if (initialQuestionContent) {
+        setQuestionContent(initialQuestionContent)
+      }
+    }
+  }, [open, initialScenario, initialQuestionContent])
 
   // Callback to update cached conversations
   const handleConversationsChange = useCallback((conversations: Conversation[]) => {
