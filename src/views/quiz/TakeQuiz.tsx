@@ -74,6 +74,8 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [checkingSubmission, setCheckingSubmission] = useState(true)
+  const classIdRef = useRef<string | null>(null) // Store classId for redirect
 
   // Initialize startTime from sessionStorage or create new one
   useEffect(() => {
@@ -91,8 +93,72 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
   }, [quizId])
 
   useEffect(() => {
-    fetchQuizData()
-  }, [quizId])
+    const checkAndLoad = async () => {
+      if (!classQuizzIdFromUrl) {
+        setCheckingSubmission(false)
+        await fetchQuizData()
+        return
+      }
+
+      // Check sessionStorage first - fastest way to check if already submitted
+      const submittedKey = `quiz_submitted_${classQuizzIdFromUrl}`
+      const isSubmitted = typeof window !== 'undefined' ? sessionStorage.getItem(submittedKey) : null
+
+      if (isSubmitted === 'true') {
+        // If we have classId, redirect to classassignment
+        if (classIdRef.current) {
+          router.push(`/${lang}/my-classes/${classIdRef.current}`)
+          return
+        }
+        // Otherwise, try to get classId from quiz data first
+        // We'll check again after fetching quiz data
+      }
+
+      // Try to check submission status from API, but don't block if it fails
+      try {
+        const submissionsResponse = await classQuizzService.getStudentSubmissions(classQuizzIdFromUrl)
+
+        if (submissionsResponse.success && submissionsResponse.data && Array.isArray(submissionsResponse.data)) {
+          const submissions = submissionsResponse.data
+          if (submissions.length > 0) {
+            // Mark as submitted in sessionStorage
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem(submittedKey, 'true')
+            }
+            // Redirect to classassignment if we have classId, otherwise to result
+            if (classIdRef.current) {
+              router.push(`/${lang}/my-classes/${classIdRef.current}`)
+              return
+            }
+            const latestSubmission = submissions[0]
+            const submissionId = latestSubmission.id || latestSubmission.submission_id
+            if (submissionId) {
+              router.push(`/${lang}/quiz/${submissionId}/result`)
+              return
+            }
+          }
+        }
+      } catch (err: any) {
+        // Silently ignore errors (403, 404, etc.) - allow quiz to load
+        // Backend will handle preventing duplicate submissions when submitting
+        // This check is optional and should not block the user
+      } finally {
+        setCheckingSubmission(false)
+      }
+
+      // Load quiz data to get classId
+      await fetchQuizData()
+
+      // After loading quiz data, check again if submitted
+      if (isSubmitted === 'true' && classIdRef.current) {
+        router.push(`/${lang}/my-classes/${classIdRef.current}`)
+        return
+      }
+    }
+
+    checkAndLoad()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quizId, classQuizzIdFromUrl, lang])
 
   const fetchQuizData = async () => {
     setLoading(true)
@@ -103,6 +169,22 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
 
       if (response.success && response.data) {
         const quizData = response.data
+
+        // Store classId for redirect
+        if (quizData.class_id) {
+          classIdRef.current = quizData.class_id
+        }
+
+        // Check if already submitted after getting classId
+        if (classQuizzIdFromUrl && typeof window !== 'undefined') {
+          const submittedKey = `quiz_submitted_${classQuizzIdFromUrl}`
+          const isSubmitted = sessionStorage.getItem(submittedKey)
+          if (isSubmitted === 'true' && classIdRef.current) {
+            setLoading(false)
+            router.push(`/${lang}/my-classes/${classIdRef.current}`)
+            return
+          }
+        }
 
         // Calculate duration from start_time and end_time
         const startTime = new Date(quizData.start_time)
@@ -237,7 +319,12 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
       const response = await classQuizzService.submitQuizAttempt(classQuizzIdFromUrl, formattedAnswers, totalTime)
 
       if (response.success && response.data) {
-        // Navigate to result page using submission_id
+        // Mark as submitted in sessionStorage
+        if (typeof window !== 'undefined' && classQuizzIdFromUrl) {
+          sessionStorage.setItem(`quiz_submitted_${classQuizzIdFromUrl}`, 'true')
+        }
+
+        // Always navigate to result page after successful submission
         const submissionId = response.data.submission_id
         router.push(`/${lang}/quiz/${submissionId}/result`)
       } else {
@@ -253,7 +340,7 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
     return Object.keys(answers).length
   }
 
-  if (loading) {
+  if (loading || checkingSubmission) {
     return (
       <Box
         sx={{

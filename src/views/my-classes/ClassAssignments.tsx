@@ -78,6 +78,9 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
   const [totalItems, setTotalItems] = useState(0)
   const fetchKeyRef = useRef<string>('')
   const classInfoFetchedRef = useRef<string>('')
+  const mountTimeRef = useRef<number>(Date.now())
+  const lastClassIdRef = useRef<string>('')
+  const isFirstMountRef = useRef<boolean>(true)
 
   // Fetch class info
   const fetchClassInfo = useCallback(async () => {
@@ -201,21 +204,44 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
       return
     }
 
+    // Reset flags if classId changed (new class loaded)
+    if (lastClassIdRef.current !== classId) {
+      mountTimeRef.current = Date.now()
+      lastClassIdRef.current = classId
+      isFirstMountRef.current = true
+    }
+
     const key = `${classId}_${currentPage}`
-    if (fetchKeyRef.current === key) return
+    if (fetchKeyRef.current === key && !isFirstMountRef.current) return
 
     setValidClassId(classId)
     fetchKeyRef.current = key
 
-    // Try cache first
+    // On first mount (F5 or initial navigation), always clear cache and fetch fresh data
+    if (isFirstMountRef.current) {
+      isFirstMountRef.current = false
+      assignmentsCache.clearAll(classId)
+      // Load classInfo from cache if available (for immediate display)
+      const cachedClassInfo = assignmentsCache.getClassInfo(classId)
+      if (cachedClassInfo) setClassInfo(cachedClassInfo)
+      // Always fetch fresh data on first mount
+      fetchAssignments(currentPage)
+      return
+    }
+
+    // For subsequent loads (page change, etc.), try cache first
     const cached = assignmentsCache.get(classId, currentPage)
     if (cached?.assignments?.length) {
+      // Show cached data immediately for better UX
       setAssignments(cached.assignments)
       setTotalPages(cached.pagination.totalPages)
       setItemsPerPage(cached.pagination.itemsPerPage)
       setTotalItems(cached.pagination.totalItems)
       if (cached.classInfo) setClassInfo(cached.classInfo)
       setLoading(false)
+
+      // Still fetch fresh data in background to update cache
+      fetchAssignments(currentPage)
       return
     }
 
@@ -226,6 +252,23 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
     // Fetch from API
     fetchAssignments(currentPage)
   }, [classId, currentPage, fetchAssignments])
+
+  // Refresh data when window gains focus (user comes back to tab)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (classId && !loading) {
+        // Clear cache and fetch fresh data when user returns to tab
+        assignmentsCache.clearAll(classId)
+        fetchKeyRef.current = '' // Reset to allow fetch
+        fetchAssignments(currentPage)
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [classId, currentPage, fetchAssignments, loading])
 
   // Fetch classInfo separately (only once per classId)
   useEffect(() => {
@@ -246,7 +289,14 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
   const getStatusChip = useCallback((status: AssignmentStatus) => {
     switch (status) {
       case 'open':
-        return <Chip label='Đang mở' size='small' color='info' sx={{ bgcolor: '#E0F2FE', color: '#0369A1', width: '100%' }} />
+        return (
+          <Chip
+            label='Đang mở'
+            size='small'
+            color='info'
+            sx={{ bgcolor: '#E0F2FE', color: '#0369A1', width: '100%' }}
+          />
+        )
       case 'completed':
         return <Chip label='Đã kết thúc' size='small' sx={{ bgcolor: '#FEE2E2', color: '#DC2626', width: '100%' }} />
       case 'upcoming':
@@ -436,9 +486,11 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
                 <TableHead>
                   <TableRow sx={{ bgcolor: 'var(--mui-palette-primary-dark)' }}>
                     <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Tên bài</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 600, py: 2}}>Thời gian mở</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Thời gian mở</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Hạn nộp</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, textAlign: 'center' }}>Trạng thái</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, textAlign: 'center' }}>
+                      Trạng thái
+                    </TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, textAlign: 'center' }}>Thao tác</TableCell>
                   </TableRow>
                 </TableHead>
