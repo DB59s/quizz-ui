@@ -2,7 +2,7 @@
 
 // React Imports
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 
 // MUI Imports
 import Card from '@mui/material/Card'
@@ -55,12 +55,18 @@ const TabPanel = (props: TabPanelProps) => {
 
 const ClassDetail = ({ classId }: { classId: string }) => {
   const router = useRouter()
+  const params = useParams()
+  const lang = (params?.lang as string) || 'en'
   const [tabValue, setTabValue] = useState(0)
   const [classInfo, setClassInfo] = useState<ClassInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    // Save classId to sessionStorage when viewing detail
+    if (classId) {
+      sessionStorage.setItem('lastViewedClassId', classId)
+    }
     fetchClassInfo()
   }, [classId])
 
@@ -104,7 +110,7 @@ const ClassDetail = ({ classId }: { classId: string }) => {
   }
 
   const handleBack = () => {
-    router.push('/my-classes')
+    router.push(`/${lang}/my-classes`)
   }
 
   if (loading) {

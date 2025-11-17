@@ -1,7 +1,7 @@
 'use client'
 
 // React Imports
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useParams } from 'next/navigation'
 
@@ -34,14 +34,17 @@ import 'rc-pagination/assets/index.css'
 import { classService } from '@/services/class.service'
 import { classQuizzService, type ClassQuizz } from '@/services/classQuizz.service'
 
+// Utils
+import { assignmentsCache } from './utils/assignmentsCache.utils'
+
 // Types
 type AssignmentStatus = 'open' | 'completed' | 'upcoming'
 
 type Assignment = {
   id: string
-  quizId: string // Add quiz_id for navigation
-  submissionId: string | null // Add submission_id for viewing results
-  submissionStatus: string | null // Add submission status (graded, pending, etc.)
+  quizId: string
+  submissionId: string | null
+  submissionStatus: string | null
   title: string
   type: 'exam' | 'assignment'
   startDate: string
@@ -73,111 +76,206 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
   const [totalPages, setTotalPages] = useState(0)
   const [itemsPerPage, setItemsPerPage] = useState(10)
   const [totalItems, setTotalItems] = useState(0)
+  const fetchKeyRef = useRef<string>('')
+  const classInfoFetchedRef = useRef<string>('')
+  const mountTimeRef = useRef<number>(Date.now())
+  const lastClassIdRef = useRef<string>('')
+  const isFirstMountRef = useRef<boolean>(true)
 
-  useEffect(() => {
-    // Validate classId before fetching
-    if (!classId || classId.trim() === '') {
-      setError('Không tìm thấy ID lớp học. Vui lòng quay lại và thử lại.')
-      setLoading(false)
-      return
-    }
-    setValidClassId(classId)
-    fetchAssignments(currentPage)
-  }, [classId, currentPage])
-
-  const fetchAssignments = async (page: number = 1) => {
-    setLoading(true)
-    setError(null)
+  // Fetch class info
+  const fetchClassInfo = useCallback(async () => {
+    if (!classId || classInfoFetchedRef.current === classId) return
 
     try {
-      // Fetch class quizzes with pagination
-      const quizzesResponse = await classQuizzService.getClassQuizzes(classId, page, itemsPerPage)
-
-      if (quizzesResponse.success && quizzesResponse.data) {
-        // Update pagination info
-        if (quizzesResponse.pagination) {
-          setTotalPages(quizzesResponse.pagination.total_pages)
-          setItemsPerPage(quizzesResponse.pagination.items_per_page)
-          setTotalItems(quizzesResponse.pagination.total_items)
-        }
-
-        // Fetch all submissions for this class at once
-        const submissionsMap: Record<string, any> = {}
-
-        try {
-          const submissionsResponse = await classQuizzService.getStudentSubmissionsByClass(classId)
-          if (submissionsResponse.success && submissionsResponse.data) {
-            // Map submissions by class_quiz_id
-            submissionsResponse.data.forEach((submission: any) => {
-              if (submission.class_quiz_id) {
-                submissionsMap[submission.class_quiz_id] = submission
-              }
-            })
-          }
-        } catch (err) {
-          console.log('No submissions found for this class')
-        }
-
-        // Map API response to Assignment type
-        const mappedAssignments: Assignment[] = quizzesResponse.data.map((cq: ClassQuizz) => {
-          const now = new Date()
-          const startDate = new Date(cq.start_time)
-          const endDate = new Date(cq.end_time)
-
-          // Map API status to component status
-          let status: AssignmentStatus = 'upcoming'
-          if (cq.status === 'active') {
-            status = 'open'
-          } else if (cq.status === 'ended') {
-            status = 'completed'
-          } else if (cq.status === 'upcoming') {
-            status = 'upcoming'
-          }
-
-          const submission = submissionsMap[cq.id]
-
-          return {
-            id: cq.id,
-            quizId: cq.quiz_id, // Store quiz_id for navigation
-            submissionId: submission?.submission_id || null, // Store submission_id for viewing results
-            submissionStatus: submission?.status || null, // Store submission status
-            title: cq.quiz.name,
-            type: 'exam',
-            startDate: cq.start_time,
-            dueDate: cq.end_time,
-            status,
-            submitted: !!submission, // Check if submission exists
-            score: submission?.score || null, // Get score from submission
-            maxScore: 100, // Default value, can be updated later
-            description: cq.quiz.description
-          }
-        })
-
-        setAssignments(mappedAssignments)
+      const cachedInfo = assignmentsCache.getClassInfo(classId)
+      if (cachedInfo) {
+        setClassInfo(cachedInfo)
+        classInfoFetchedRef.current = classId
+        return
       }
 
-      // Fetch class info
       const applicationsRes = await classService.getStudentApplications()
       if (applicationsRes.success && applicationsRes.data?.classes) {
         const foundClass = applicationsRes.data.classes.find((app: any) => app.class._id === classId)
         if (foundClass) {
           const classRes = await classService.getClassByCode(foundClass.class.class_code)
-          setClassInfo({
+          const info: ClassInfo = {
             id: foundClass.class._id,
             name: foundClass.class.name,
             code: foundClass.class.class_code,
             teacher: classRes.data?.teacher?.full_name || 'Chưa có thông tin'
-          })
+          }
+          setClassInfo(info)
+          assignmentsCache.setClassInfo(classId, info)
+          classInfoFetchedRef.current = classId
         }
       }
-    } catch (err: any) {
-      setError(err?.response?.data?.message || 'Đã xảy ra lỗi khi tải dữ liệu')
-    } finally {
-      setLoading(false)
+    } catch (err) {
+      console.error('Error fetching class info:', err)
     }
-  }
+  }, [classId])
 
-  const formatDate = (dateString: string) => {
+  // Map API response to Assignment
+  const mapQuizzToAssignment = useCallback((cq: ClassQuizz, submissionsMap: Record<string, any>): Assignment => {
+    let status: AssignmentStatus = 'upcoming'
+    if (cq.status === 'active') status = 'open'
+    else if (cq.status === 'ended') status = 'completed'
+
+    const submission = submissionsMap[cq.id]
+
+    return {
+      id: cq.id,
+      quizId: cq.quiz_id,
+      submissionId: submission?.submission_id || null,
+      submissionStatus: submission?.status || null,
+      title: cq.quiz.name,
+      type: 'exam',
+      startDate: cq.start_time,
+      dueDate: cq.end_time,
+      status,
+      submitted: !!submission,
+      score: submission?.score || null,
+      maxScore: 100,
+      description: cq.quiz.description
+    }
+  }, [])
+
+  // Fetch assignments from API
+  const fetchAssignments = useCallback(
+    async (page: number = 1) => {
+      if (!classId) return
+
+      setLoading(true)
+      setError(null)
+
+      try {
+        const [quizzesResponse, submissionsResponse] = await Promise.all([
+          classQuizzService.getClassQuizzes(classId, page, itemsPerPage),
+          classQuizzService.getStudentSubmissionsByClass(classId).catch(() => ({ success: false, data: [] }))
+        ])
+
+        if (quizzesResponse.success && quizzesResponse.data) {
+          const paginationData = quizzesResponse.pagination
+            ? {
+                totalPages: quizzesResponse.pagination.total_pages,
+                itemsPerPage: quizzesResponse.pagination.items_per_page,
+                totalItems: quizzesResponse.pagination.total_items
+              }
+            : { totalPages: 0, itemsPerPage: 10, totalItems: 0 }
+
+          const submissionsMap: Record<string, any> = {}
+          if (submissionsResponse.success && submissionsResponse.data) {
+            submissionsResponse.data.forEach((s: any) => {
+              if (s.class_quiz_id) submissionsMap[s.class_quiz_id] = s
+            })
+          }
+
+          const mappedAssignments = quizzesResponse.data.map((cq: ClassQuizz) =>
+            mapQuizzToAssignment(cq, submissionsMap)
+          )
+
+          setAssignments(mappedAssignments)
+          setTotalPages(paginationData.totalPages)
+          setItemsPerPage(paginationData.itemsPerPage)
+          setTotalItems(paginationData.totalItems)
+
+          assignmentsCache.set(classId, page, {
+            assignments: mappedAssignments,
+            classInfo,
+            pagination: { currentPage: page, ...paginationData }
+          })
+        }
+
+        if (!classInfo) await fetchClassInfo()
+      } catch (err: any) {
+        setError(err?.response?.data?.message || 'Đã xảy ra lỗi khi tải dữ liệu')
+      } finally {
+        setLoading(false)
+      }
+    },
+    [classId, itemsPerPage, classInfo, fetchClassInfo, mapQuizzToAssignment]
+  )
+
+  // Main effect - fetch data when classId or page changes
+  useEffect(() => {
+    if (!classId?.trim()) {
+      setError('Không tìm thấy ID lớp học.')
+      setLoading(false)
+      return
+    }
+
+    // Reset flags if classId changed (new class loaded)
+    if (lastClassIdRef.current !== classId) {
+      mountTimeRef.current = Date.now()
+      lastClassIdRef.current = classId
+      isFirstMountRef.current = true
+    }
+
+    const key = `${classId}_${currentPage}`
+    if (fetchKeyRef.current === key && !isFirstMountRef.current) return
+
+    setValidClassId(classId)
+    fetchKeyRef.current = key
+
+    // On first mount (F5 or initial navigation), always clear cache and fetch fresh data
+    if (isFirstMountRef.current) {
+      isFirstMountRef.current = false
+      assignmentsCache.clearAll(classId)
+      // Load classInfo from cache if available (for immediate display)
+      const cachedClassInfo = assignmentsCache.getClassInfo(classId)
+      if (cachedClassInfo) setClassInfo(cachedClassInfo)
+      // Always fetch fresh data on first mount
+      fetchAssignments(currentPage)
+      return
+    }
+
+    // For subsequent loads (page change, etc.), try cache first
+    const cached = assignmentsCache.get(classId, currentPage)
+    if (cached?.assignments?.length) {
+      // Show cached data immediately for better UX
+      setAssignments(cached.assignments)
+      setTotalPages(cached.pagination.totalPages)
+      setItemsPerPage(cached.pagination.itemsPerPage)
+      setTotalItems(cached.pagination.totalItems)
+      if (cached.classInfo) setClassInfo(cached.classInfo)
+      setLoading(false)
+
+      // Still fetch fresh data in background to update cache
+      fetchAssignments(currentPage)
+      return
+    }
+
+    // Load classInfo from cache if available
+    const cachedClassInfo = assignmentsCache.getClassInfo(classId)
+    if (cachedClassInfo) setClassInfo(cachedClassInfo)
+
+    // Fetch from API
+    fetchAssignments(currentPage)
+  }, [classId, currentPage, fetchAssignments])
+
+  // Refresh data when window gains focus (user comes back to tab)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (classId && !loading) {
+        // Clear cache and fetch fresh data when user returns to tab
+        assignmentsCache.clearAll(classId)
+        fetchKeyRef.current = '' // Reset to allow fetch
+        fetchAssignments(currentPage)
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [classId, currentPage, fetchAssignments, loading])
+
+  // Fetch classInfo separately (only once per classId)
+  useEffect(() => {
+    if (classId && !classInfo) fetchClassInfo()
+  }, [classId, classInfo, fetchClassInfo])
+
+  const formatDate = useCallback((dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleString('vi-VN', {
       day: '2-digit',
@@ -186,20 +284,27 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
       hour: '2-digit',
       minute: '2-digit'
     })
-  }
+  }, [])
 
-  const getStatusChip = (status: AssignmentStatus) => {
+  const getStatusChip = useCallback((status: AssignmentStatus) => {
     switch (status) {
       case 'open':
-        return <Chip label='Đang mở' size='small' color='info' sx={{ bgcolor: '#E0F2FE', color: '#0369A1' }} />
+        return (
+          <Chip
+            label='Đang mở'
+            size='small'
+            color='info'
+            sx={{ bgcolor: '#E0F2FE', color: '#0369A1', width: '100%' }}
+          />
+        )
       case 'completed':
-        return <Chip label='Đã hoàn thành' size='small' color='success' sx={{ bgcolor: '#D1FAE5', color: '#059669' }} />
+        return <Chip label='Đã kết thúc' size='small' sx={{ bgcolor: '#FEE2E2', color: '#DC2626', width: '100%' }} />
       case 'upcoming':
-        return <Chip label='Chưa mở' size='small' sx={{ bgcolor: '#E5E7EB', color: '#6B7280' }} />
+        return <Chip label='Chưa mở' size='small' sx={{ bgcolor: '#E5E7EB', color: '#6B7280', width: '100%' }} />
       default:
         return null
     }
-  }
+  }, [])
 
   const getActionButton = (assignment: Assignment) => {
     if (assignment.status === 'open' && !assignment.submitted) {
@@ -211,7 +316,9 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
             bgcolor: '#06B6D4',
             '&:hover': { bgcolor: '#0891B2' },
             textTransform: 'none',
-            fontWeight: 500
+            fontWeight: 500,
+            minWidth: 100,
+            width: '100%'
           }}
           onClick={() => handleJoinAssignment(assignment)}
         >
@@ -231,6 +338,8 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
             color: '#6B7280',
             textTransform: 'none',
             fontWeight: 500,
+            minWidth: 100,
+            width: '100%',
             '&:hover': {
               borderColor: '#6B7280',
               bgcolor: '#F9FAFB'
@@ -277,38 +386,44 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
     return null
   }
 
-  const handleJoinAssignment = (assignment: Assignment) => {
-    // Navigate to quiz page with classQuizzId in query params
-    if (!validClassId) {
-      setError('Không tìm thấy ID lớp học. Vui lòng quay lại và thử lại.')
-      return
-    }
-    // Use URLSearchParams to properly encode query params
-    const urlParams = new URLSearchParams()
-    urlParams.set('quizzClassId', assignment.id)
-    const url = `/${lang}/quiz/${assignment.quizId}?${urlParams.toString()}`
+  const handleJoinAssignment = useCallback(
+    (assignment: Assignment) => {
+      if (!validClassId) {
+        setError('Không tìm thấy ID lớp học. Vui lòng quay lại và thử lại.')
+        return
+      }
 
-    router.push(url)
-  }
+      // Invalidate cache when starting quiz (submissions might change)
+      assignmentsCache.clear(classId, currentPage)
 
-  const handleViewResult = (assignment: Assignment) => {
-    // Navigate to result page using submission_id
-    if (assignment.submissionId) {
-      router.push(`/${lang}/quiz/${assignment.submissionId}/result`)
-    } else {
-      setError('Không tìm thấy bài nộp của bạn')
-    }
-  }
+      const urlParams = new URLSearchParams()
+      urlParams.set('quizzClassId', assignment.id)
+      router.push(`/${lang}/quiz/${assignment.quizId}?${urlParams.toString()}`)
+    },
+    [validClassId, classId, currentPage, lang, router]
+  )
 
-  const handleBack = () => {
+  const handleViewResult = useCallback(
+    (assignment: Assignment) => {
+      if (assignment.submissionId) {
+        router.push(`/${lang}/quiz/${assignment.submissionId}/result`)
+      } else {
+        setError('Không tìm thấy bài nộp của bạn')
+      }
+    },
+    [lang, router]
+  )
+
+  const handleBack = useCallback(() => {
     router.back()
-  }
+  }, [router])
 
-  const handlePageChange = (page: number) => {
+  const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page)
-  }
+    fetchKeyRef.current = '' // Reset to allow fetch for new page
+  }, [])
 
-  const renderEmptyState = () => {
+  const renderEmptyState = useCallback(() => {
     return (
       <Box className='flex flex-col items-center justify-center py-12 px-4'>
         <Inbox size={48} style={{ color: '#9CA3AF', marginBottom: 12 }} />
@@ -320,7 +435,7 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
         </Typography>
       </Box>
     )
-  }
+  }, [])
 
   if (loading) {
     return (
@@ -373,8 +488,10 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
                     <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Tên bài</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Thời gian mở</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Hạn nộp</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Trạng thái</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Thao tác</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, textAlign: 'center' }}>
+                      Trạng thái
+                    </TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, textAlign: 'center' }}>Thao tác</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>

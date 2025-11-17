@@ -21,6 +21,7 @@ import Radio from '@mui/material/Radio'
 
 // Service Imports
 import { quizService } from '@/services/quiz.service'
+import { useChatbotContext } from '@/contexts/ChatbotContext'
 
 // Types
 type AnswerOption = {
@@ -64,6 +65,7 @@ type QuizResult = {
 
 const QuizResult = ({ submissionId }: { submissionId: string }) => {
   const router = useRouter()
+  const { openChatbot } = useChatbotContext()
   const [result, setResult] = useState<QuizResult | null>(null)
   const [answers, setAnswers] = useState<Answer[]>([])
   const [loading, setLoading] = useState(true)
@@ -181,6 +183,10 @@ const QuizResult = ({ submissionId }: { submissionId: string }) => {
 
   const handleBack = () => {
     router.back()
+  }
+
+  const handleOpenChatbot = (question: string, questionId: string) => {
+    openChatbot(question, 'question_bank', questionId)
   }
 
   if (loading) {
@@ -396,6 +402,19 @@ const QuizResult = ({ submissionId }: { submissionId: string }) => {
                   <Typography className='font-medium text-gray-800 flex-1'>
                     Câu {index + 1}: {answer.question}
                   </Typography>
+                  <Button
+                    variant='outlined'
+                    size='small'
+                    onClick={() => handleOpenChatbot(answer.question, answer.questionId)}
+                    sx={{
+                      textTransform: 'none',
+                      minWidth: 'auto',
+                      px: 2
+                    }}
+                  >
+                    <i className='tabler-bot' style={{ marginRight: 4 }} />
+                    Hỏi chatbot
+                  </Button>
                 </Box>
               </AccordionSummary>
               <AccordionDetails

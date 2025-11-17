@@ -17,10 +17,23 @@ const nextConfig: NextConfig = {
         locale: false
       },
       {
-        source: '/((?!(?:en|fr|ar|front-pages|favicon.ico)\\b)):path',
+        source: '/((?!(?:en|fr|ar|front-pages|favicon.ico|.*\\.svg)\\b)):path',
         destination: '/en/:path',
         permanent: true,
         locale: false
+      }
+    ]
+  },
+  headers: async () => {
+    return [
+      {
+        source: '/icon.svg',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable'
+          }
+        ]
       }
     ]
   },

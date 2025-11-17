@@ -25,6 +25,7 @@ export interface QuizDetail {
   class_id: string
   start_time: string
   end_time: string
+  total_time?: number // Total time in seconds for the quiz
   questions: QuizQuestion[]
   created_at: string
   updated_at: string

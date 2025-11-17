@@ -29,9 +29,9 @@ const OpenDialogOnElementClick = (props: OpenDialogOnElementClickProps) => {
 
   // Clone the dialog and add open/onClose props
   const clonedDialog = cloneElement(dialog, {
+    ...dialog.props,
     open,
-    onClose: handleClose,
-    ...dialog.props
+    onClose: handleClose
   })
 
   return (

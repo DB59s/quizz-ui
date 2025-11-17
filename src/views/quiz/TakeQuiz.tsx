@@ -1,7 +1,7 @@
 'use client'
 
 // React Imports
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams, useParams } from 'next/navigation'
 
 // MUI Imports
@@ -68,15 +68,97 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
   const [answers, setAnswers] = useState<Record<string, string[]>>({})
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [timeLeft, setTimeLeft] = useState(3600) // 60 minutes in seconds
-  const [startTime] = useState<number>(Date.now()) // Track when quiz started
+  const startTimeRef = useRef<number | null>(null) // Use ref to persist start time across refreshes
+  const totalTimeRef = useRef<number | null>(null) // Store total quiz time
   const [showSubmitDialog, setShowSubmitDialog] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [checkingSubmission, setCheckingSubmission] = useState(true)
+  const classIdRef = useRef<string | null>(null) // Store classId for redirect
+
+  // Initialize startTime from sessionStorage or create new one
+  useEffect(() => {
+    if (startTimeRef.current === null) {
+      const savedStartTime = typeof window !== 'undefined' ? sessionStorage.getItem(`quiz_start_${quizId}`) : null
+      if (savedStartTime) {
+        startTimeRef.current = parseInt(savedStartTime, 10)
+      } else {
+        startTimeRef.current = Date.now()
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem(`quiz_start_${quizId}`, startTimeRef.current.toString())
+        }
+      }
+    }
+  }, [quizId])
 
   useEffect(() => {
-    fetchQuizData()
-  }, [quizId])
+    const checkAndLoad = async () => {
+      if (!classQuizzIdFromUrl) {
+        setCheckingSubmission(false)
+        await fetchQuizData()
+        return
+      }
+
+      // Check sessionStorage first - fastest way to check if already submitted
+      const submittedKey = `quiz_submitted_${classQuizzIdFromUrl}`
+      const isSubmitted = typeof window !== 'undefined' ? sessionStorage.getItem(submittedKey) : null
+
+      if (isSubmitted === 'true') {
+        // If we have classId, redirect to classassignment
+        if (classIdRef.current) {
+          router.push(`/${lang}/my-classes/${classIdRef.current}`)
+          return
+        }
+        // Otherwise, try to get classId from quiz data first
+        // We'll check again after fetching quiz data
+      }
+
+      // Try to check submission status from API, but don't block if it fails
+      try {
+        const submissionsResponse = await classQuizzService.getStudentSubmissions(classQuizzIdFromUrl)
+
+        if (submissionsResponse.success && submissionsResponse.data && Array.isArray(submissionsResponse.data)) {
+          const submissions = submissionsResponse.data
+          if (submissions.length > 0) {
+            // Mark as submitted in sessionStorage
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem(submittedKey, 'true')
+            }
+            // Redirect to classassignment if we have classId, otherwise to result
+            if (classIdRef.current) {
+              router.push(`/${lang}/my-classes/${classIdRef.current}`)
+              return
+            }
+            const latestSubmission = submissions[0]
+            const submissionId = latestSubmission.id || latestSubmission.submission_id
+            if (submissionId) {
+              router.push(`/${lang}/quiz/${submissionId}/result`)
+              return
+            }
+          }
+        }
+      } catch (err: any) {
+        // Silently ignore errors (403, 404, etc.) - allow quiz to load
+        // Backend will handle preventing duplicate submissions when submitting
+        // This check is optional and should not block the user
+      } finally {
+        setCheckingSubmission(false)
+      }
+
+      // Load quiz data to get classId
+      await fetchQuizData()
+
+      // After loading quiz data, check again if submitted
+      if (isSubmitted === 'true' && classIdRef.current) {
+        router.push(`/${lang}/my-classes/${classIdRef.current}`)
+        return
+      }
+    }
+
+    checkAndLoad()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quizId, classQuizzIdFromUrl, lang])
 
   const fetchQuizData = async () => {
     setLoading(true)
@@ -87,6 +169,22 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
 
       if (response.success && response.data) {
         const quizData = response.data
+
+        // Store classId for redirect
+        if (quizData.class_id) {
+          classIdRef.current = quizData.class_id
+        }
+
+        // Check if already submitted after getting classId
+        if (classQuizzIdFromUrl && typeof window !== 'undefined') {
+          const submittedKey = `quiz_submitted_${classQuizzIdFromUrl}`
+          const isSubmitted = sessionStorage.getItem(submittedKey)
+          if (isSubmitted === 'true' && classIdRef.current) {
+            setLoading(false)
+            router.push(`/${lang}/my-classes/${classIdRef.current}`)
+            return
+          }
+        }
 
         // Calculate duration from start_time and end_time
         const startTime = new Date(quizData.start_time)
@@ -123,10 +221,10 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
 
         setQuestions(mappedQuestions)
 
-        // Set timer based on remaining time
-        const now = new Date()
-        const remainingSeconds = Math.floor((endTime.getTime() - now.getTime()) / 1000)
-        setTimeLeft(remainingSeconds > 0 ? remainingSeconds : durationMinutes * 60)
+        // Set timer based on total_time from API or default to 600 seconds
+        const totalTime = quizData.total_time ?? 600 // Use total_time from API, default to 600 seconds
+        totalTimeRef.current = totalTime
+        setTimeLeft(totalTime)
       }
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Đã xảy ra lỗi khi tải bài kiểm tra')
@@ -136,18 +234,25 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
   }
 
   // Timer countdown
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (timeLeft <= 0) {
-      handleSubmit()
-      return
-    }
-
     const timer = setInterval(() => {
-      setTimeLeft(prev => prev - 1)
+      if (startTimeRef.current && totalTimeRef.current) {
+        const elapsedTime = Math.floor((Date.now() - startTimeRef.current) / 1000)
+        const remainingTime = Math.max(0, totalTimeRef.current - elapsedTime)
+        setTimeLeft(remainingTime)
+      }
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [timeLeft])
+  }, [])
+
+  // Auto submit when time is up
+  useEffect(() => {
+    if (timeLeft <= 0 && !submitting) {
+      handleSubmit()
+    }
+  }, [timeLeft, submitting])
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600)
@@ -164,9 +269,7 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
         const isSelected = currentAnswers.includes(answerId)
         return {
           ...prev,
-          [questionId]: isSelected
-            ? currentAnswers.filter(id => id !== answerId)
-            : [...currentAnswers, answerId]
+          [questionId]: isSelected ? currentAnswers.filter(id => id !== answerId) : [...currentAnswers, answerId]
         }
       } else {
         // For single choice questions, replace the answer
@@ -200,7 +303,7 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
 
     try {
       // Calculate total time in seconds
-      const totalTime = Math.floor((Date.now() - startTime) / 1000)
+      const totalTime = startTimeRef.current ? Math.floor((Date.now() - startTimeRef.current) / 1000) : 0
 
       // Format answers according to the API structure
       const formattedAnswers = Object.entries(answers).map(([questionId, selectedAnswerIds]) => ({
@@ -216,7 +319,12 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
       const response = await classQuizzService.submitQuizAttempt(classQuizzIdFromUrl, formattedAnswers, totalTime)
 
       if (response.success && response.data) {
-        // Navigate to result page using submission_id
+        // Mark as submitted in sessionStorage
+        if (typeof window !== 'undefined' && classQuizzIdFromUrl) {
+          sessionStorage.setItem(`quiz_submitted_${classQuizzIdFromUrl}`, 'true')
+        }
+
+        // Always navigate to result page after successful submission
         const submissionId = response.data.submission_id
         router.push(`/${lang}/quiz/${submissionId}/result`)
       } else {
@@ -232,7 +340,7 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
     return Object.keys(answers).length
   }
 
-  if (loading) {
+  if (loading || checkingSubmission) {
     return (
       <Box
         sx={{
@@ -475,7 +583,8 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
           maxWidth: '896px',
           flex: 1,
           px: { xs: 2, sm: 3, lg: 4 },
-          py: 4
+          py: 4,
+          pb: 16
         }}
       >
         <Box sx={{ width: '100%' }}>
@@ -593,7 +702,7 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
       <Box
         component='footer'
         sx={{
-          position: 'sticky',
+          position: 'absolute',
           bottom: 0,
           zIndex: 10,
           width: '100%'
@@ -668,7 +777,7 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: 3,
+            borderRadius: 3
           }
         }}
       >
