@@ -1,0 +1,16 @@
+<svg width='48' height='48' viewBox='0 0 48 48' fill='none' xmlns='http://www.w3.org/2000/svg'>
+  <circle cx='24' cy='24' r='22' fill='url(#paint0_linear)' />
+  <circle cx='24' cy='24' r='16' fill='#1C3D7A' opacity='0.9' />
+  <path d='M24 14C20.686 14 18 16.686 18 20H21C21 18.343 22.343 17 24 17C25.657 17 27 18.343 27 20C27 21.657 25.657 23 24 23V26H27V24.83C28.725 24.415 30 22.86 30 21C30 18.239 27.761 16 25 16C24.667 16 24.333 16.033 24 16.1V14Z' fill='#FFFFFF' />
+  <circle cx='24' cy='30' r='2' fill='#FFFFFF' />
+  <circle cx='12' cy='12' r='3' fill='#FFC107' opacity='0.8' />
+  <circle cx='36' cy='12' r='2.5' fill='#28A745' opacity='0.8' />
+  <circle cx='12' cy='36' r='2' fill='#00B0FF' opacity='0.8' />
+  <circle cx='36' cy='36' r='3' fill='#FF5722' opacity='0.8' />
+  <defs>
+    <linearGradient id='paint0_linear' x1='24' y1='2' x2='24' y2='46' gradientUnits='userSpaceOnUse'>
+      <stop stop-color='#667EEA' />
+      <stop offset='1' stop-color='#764BA2' />
+    </linearGradient>
+  </defs>
+</svg>

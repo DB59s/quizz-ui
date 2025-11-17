@@ -3,33 +3,33 @@ import type { SVGAttributes } from 'react'
 
 const Logo = (props: SVGAttributes<SVGElement>) => {
   return (
-    <svg width='1.4583em' height='1em' viewBox='0 0 35 24' fill='none' xmlns='http://www.w3.org/2000/svg' {...props}>
+    <svg width='1em' height='1em' viewBox='0 0 48 48' fill='none' xmlns='http://www.w3.org/2000/svg' {...props}>
+      {/* Background Circle with Gradient */}
+      <circle cx='24' cy='24' r='22' fill='url(#paint0_linear)' />
+
+      {/* Question Mark Circle */}
+      <circle cx='24' cy='24' r='16' fill='#1C3D7A' opacity='0.9' />
+
+      {/* Question Mark */}
       <path
-        fillRule='evenodd'
-        clipRule='evenodd'
-        d='M0.00188479 0V7.47707C0.00188479 7.47707 -0.145285 9.83135 2.161 11.8242L14.9358 23.9961L21.5792 23.9107L20.5136 10.7809L17.9947 7.82497L10.0778 0H0.00188479Z'
-        fill='currentColor'
+        d='M24 14C20.686 14 18 16.686 18 20H21C21 18.343 22.343 17 24 17C25.657 17 27 18.343 27 20C27 21.657 25.657 23 24 23V26H27V24.83C28.725 24.415 30 22.86 30 21C30 18.239 27.761 16 25 16C24.667 16 24.333 16.033 24 16.1V14Z'
+        fill='#FFFFFF'
       />
-      <path
-        opacity='0.06'
-        fillRule='evenodd'
-        clipRule='evenodd'
-        d='M8.39807 17.9307L13.6581 3.53127L18.059 7.91564L8.39807 17.9307Z'
-        fill='#161616'
-      />
-      <path
-        opacity='0.06'
-        fillRule='evenodd'
-        clipRule='evenodd'
-        d='M8.81183 17.3645L15.2093 5.06165L18.0926 7.94695L8.81183 17.3645Z'
-        fill='#161616'
-      />
-      <path
-        fillRule='evenodd'
-        clipRule='evenodd'
-        d='M8.47955 17.8436L25.8069 0H34.9091V7.50963C34.9091 7.50963 34.7195 10.0128 33.4463 11.3517L21.5808 24H14.9387L8.47955 17.8436Z'
-        fill='currentColor'
-      />
+      <circle cx='24' cy='30' r='2' fill='#FFFFFF' />
+
+      {/* Decorative Elements */}
+      <circle cx='12' cy='12' r='3' fill='#FFC107' opacity='0.8' />
+      <circle cx='36' cy='12' r='2.5' fill='#28A745' opacity='0.8' />
+      <circle cx='12' cy='36' r='2' fill='#00B0FF' opacity='0.8' />
+      <circle cx='36' cy='36' r='3' fill='#FF5722' opacity='0.8' />
+
+      {/* Gradient Definition */}
+      <defs>
+        <linearGradient id='paint0_linear' x1='24' y1='2' x2='24' y2='46' gradientUnits='userSpaceOnUse'>
+          <stop stopColor='#667EEA' />
+          <stop offset='1' stopColor='#764BA2' />
+        </linearGradient>
+      </defs>
     </svg>
   )
 }
