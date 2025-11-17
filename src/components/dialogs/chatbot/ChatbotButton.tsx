@@ -32,7 +32,7 @@ const StyledFab = styled(Fab)(({ theme }) => ({
 
 const ChatbotButton = () => {
   const [localOpen, setLocalOpen] = useState(false)
-  const { open: contextOpen, initialQuestionContent, initialScenario, closeChatbot } = useChatbotContext()
+  const { open: contextOpen, initialQuestionContent, initialQuestionId, initialScenario, closeChatbot } = useChatbotContext()
 
   const handleToggle = () => {
     setLocalOpen(prev => !prev)
@@ -57,6 +57,7 @@ const ChatbotButton = () => {
         open={isOpen} 
         onClose={handleClose}
         initialQuestionContent={initialQuestionContent}
+        initialQuestionId={initialQuestionId}
         initialScenario={initialScenario}
       />
     </>

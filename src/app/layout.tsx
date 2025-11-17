@@ -20,9 +20,7 @@ export const metadata = {
   title: 'Quiz Online',
   description: 'Quiz Online',
   icons: {
-    icon: '/favicon.svg',
-    shortcut: '/favicon.svg',
-    apple: '/favicon.svg'
+    icon: '/favicon.ico'
   }
 }
 

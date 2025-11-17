@@ -7,8 +7,9 @@ type ScenarioType = 'question_bank' | 'explain_answer' | 'generate_question' | n
 type ChatbotContextType = {
   open: boolean
   initialQuestionContent: string | undefined
+  initialQuestionId: string | undefined
   initialScenario: ScenarioType
-  openChatbot: (questionContent?: string, scenario?: ScenarioType) => void
+  openChatbot: (questionContent?: string, scenario?: ScenarioType, questionId?: string) => void
   closeChatbot: () => void
 }
 
@@ -17,25 +18,33 @@ const ChatbotContext = createContext<ChatbotContextType | undefined>(undefined)
 export const ChatbotProvider = ({ children }: { children: ReactNode }) => {
   const [open, setOpen] = useState(false)
   const [initialQuestionContent, setInitialQuestionContent] = useState<string | undefined>(undefined)
+  const [initialQuestionId, setInitialQuestionId] = useState<string | undefined>(undefined)
   const [initialScenario, setInitialScenario] = useState<ScenarioType>(null)
 
-  const openChatbot = useCallback((questionContent?: string, scenario: ScenarioType = 'question_bank') => {
-    setInitialQuestionContent(questionContent)
-    setInitialScenario(scenario)
-    setOpen(true)
-  }, [])
+  const openChatbot = useCallback(
+    (questionContent?: string, scenario: ScenarioType = 'question_bank', questionId?: string) => {
+      setInitialQuestionContent(questionContent)
+      setInitialQuestionId(questionId)
+      setInitialScenario(scenario)
+      setOpen(true)
+    },
+    []
+  )
 
   const closeChatbot = useCallback(() => {
     setOpen(false)
     // Clear initial values after a short delay to allow dialog to close
     setTimeout(() => {
       setInitialQuestionContent(undefined)
+      setInitialQuestionId(undefined)
       setInitialScenario(null)
     }, 300)
   }, [])
 
   return (
-    <ChatbotContext.Provider value={{ open, initialQuestionContent, initialScenario, openChatbot, closeChatbot }}>
+    <ChatbotContext.Provider
+      value={{ open, initialQuestionContent, initialQuestionId, initialScenario, openChatbot, closeChatbot }}
+    >
       {children}
     </ChatbotContext.Provider>
   )
@@ -48,4 +57,3 @@ export const useChatbotContext = () => {
   }
   return context
 }
-

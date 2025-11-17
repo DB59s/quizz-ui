@@ -75,10 +75,11 @@ type ChatbotDialogProps = {
   open: boolean
   onClose: () => void
   initialQuestionContent?: string
+  initialQuestionId?: string
   initialScenario?: ScenarioType | null
 }
 
-const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialScenario }: ChatbotDialogProps) => {
+const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionId, initialScenario }: ChatbotDialogProps) => {
   const theme = useTheme()
   const { data: session, status } = useSession()
 
@@ -155,8 +156,11 @@ const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialScenario 
       if (initialQuestionContent) {
         setQuestionContent(initialQuestionContent)
       }
+      if (initialQuestionId) {
+        setQuestionId(initialQuestionId)
+      }
     }
-  }, [open, initialScenario, initialQuestionContent])
+  }, [open, initialScenario, initialQuestionContent, initialQuestionId])
 
   // Callback to update cached conversations
   const handleConversationsChange = useCallback((conversations: Conversation[]) => {

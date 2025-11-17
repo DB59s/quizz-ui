@@ -53,7 +53,7 @@ const getSocketUrl = () => {
     return 'http://localhost:9008'
   }
 
-  return 'https://api.vuquangduy.io.vn'
+  return process.env.NEXT_PUBLIC_API_URL || ''
 }
 
 const SOCKET_URL = getSocketUrl()
@@ -132,7 +132,7 @@ export function useChatbot(accountId: string | null | undefined) {
       if (socketUrl.includes('localhost') && isLocalhostError && !hasTriedFallback.current) {
 
         hasTriedFallback.current = true
-        setSocketUrl('https://api.vuquangduy.io.vn')
+        setSocketUrl(process.env.NEXT_PUBLIC_API_URL || '')
         // Close current socket immediately - useEffect will reconnect with new URL
         newSocket.close()
         return
@@ -168,7 +168,7 @@ export function useChatbot(accountId: string | null | undefined) {
       ) {
 
         hasTriedFallback.current = true
-        setSocketUrl('https://api.vuquangduy.io.vn')
+        setSocketUrl(process.env.NEXT_PUBLIC_API_URL || '')
         newSocket.close()
       }
     })

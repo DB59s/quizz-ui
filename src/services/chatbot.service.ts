@@ -59,7 +59,7 @@ export interface UpdateConversationResponse {
   data: Conversation
 }
 
-const CHATBOT_API_BASE = process.env.NEXT_PUBLIC_CHATBOT_API_URL || 'https://api.vuquangduy.io.vn'
+const CHATBOT_API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
 
 export const chatbotService = {
   /**

@@ -185,8 +185,8 @@ const QuizResult = ({ submissionId }: { submissionId: string }) => {
     router.back()
   }
 
-  const handleOpenChatbot = (question: string) => {
-    openChatbot(question, 'question_bank')
+  const handleOpenChatbot = (question: string, questionId: string) => {
+    openChatbot(question, 'question_bank', questionId)
   }
 
   if (loading) {
@@ -405,7 +405,7 @@ const QuizResult = ({ submissionId }: { submissionId: string }) => {
                   <Button
                     variant='outlined'
                     size='small'
-                    onClick={() => handleOpenChatbot(answer.question)}
+                    onClick={() => handleOpenChatbot(answer.question, answer.questionId)}
                     sx={{
                       textTransform: 'none',
                       minWidth: 'auto',
