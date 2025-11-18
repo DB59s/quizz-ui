@@ -8,6 +8,8 @@ type ResponseUser = Omit<UserTable, 'password'>
 // Mock data for demo purpose
 import { users } from './users'
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(req: Request) {
   // Vars
   const { email, password } = await req.json()

@@ -12,6 +12,8 @@ import { NextResponse } from 'next/server'
 // Data Imports
 import { db } from '@/fake-db/pages/pricing'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   return NextResponse.json(db)
 }

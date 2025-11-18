@@ -84,16 +84,13 @@ const VerticalMenu = ({ dictionary, scrollMenu }: Props) => {
         <MenuItem href={`/${locale}/home`} icon={<i className='tabler-home' />}>
           Trang chủ
         </MenuItem>
-        <MenuItem 
-          href={`/${locale}/my-classes`} 
+        <MenuItem
+          href={`/${locale}/my-classes`}
           icon={<i className='tabler-school' />}
           exactMatch={false}
           activeUrl={`/${locale}/my-classes`}
         >
           Lớp học của bạn
-        </MenuItem>
-        <MenuItem href={`/${locale}/register-class`} icon={<i className='tabler-book' />}>
-          Đăng kí lớp học
         </MenuItem>
         <MenuItem href={`/${locale}/applications`} icon={<i className='tabler-file-text' />}>
           Đơn đăng kí

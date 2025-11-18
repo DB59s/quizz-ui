@@ -5,6 +5,7 @@ import { Card, CardContent, Typography, Box, Chip, CircularProgress, Alert, Butt
 import { useSession } from "next-auth/react"
 import { classService, type ClassData } from "@/services/class.service"
 import { useClassRegistrationStatus } from "@/hooks/useClassRegistrationStatus"
+import { invalidateClassCache } from "@/utils/cacheInvalidation"
 
 interface ClassInformationProps {
   classCode: string
@@ -161,10 +162,9 @@ const ClassInformation = ({ classCode }: ClassInformationProps) => {
       console.log('Join request response:', response)
       console.log('Registration ID:', response.data?._id)
       setJoinSuccess(true)
-      
-      // Clear cache to force refresh on next search
-      const cacheKey = `class_info_${classCode}`
-      sessionStorage.removeItem(cacheKey)
+
+      // Invalidate class cache so the student list updates
+      invalidateClassCache()
     } catch (err: any) {
       if (err?.response?.data?.message) {
         setError(err.response.data.message)

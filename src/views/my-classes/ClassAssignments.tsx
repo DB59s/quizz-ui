@@ -193,7 +193,7 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
         setLoading(false)
       }
     },
-    [classId, itemsPerPage, classInfo, fetchClassInfo, mapQuizzToAssignment]
+    [classId, itemsPerPage, fetchClassInfo, mapQuizzToAssignment]
   )
 
   // Main effect - fetch data when classId or page changes
@@ -232,16 +232,13 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
     // For subsequent loads (page change, etc.), try cache first
     const cached = assignmentsCache.get(classId, currentPage)
     if (cached?.assignments?.length) {
-      // Show cached data immediately for better UX
+      // Show cached data immediately without refetching
       setAssignments(cached.assignments)
       setTotalPages(cached.pagination.totalPages)
       setItemsPerPage(cached.pagination.itemsPerPage)
       setTotalItems(cached.pagination.totalItems)
       if (cached.classInfo) setClassInfo(cached.classInfo)
       setLoading(false)
-
-      // Still fetch fresh data in background to update cache
-      fetchAssignments(currentPage)
       return
     }
 
@@ -253,22 +250,9 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
     fetchAssignments(currentPage)
   }, [classId, currentPage, fetchAssignments])
 
-  // Refresh data when window gains focus (user comes back to tab)
-  useEffect(() => {
-    const handleFocus = () => {
-      if (classId && !loading) {
-        // Clear cache and fetch fresh data when user returns to tab
-        assignmentsCache.clearAll(classId)
-        fetchKeyRef.current = '' // Reset to allow fetch
-        fetchAssignments(currentPage)
-      }
-    }
-
-    window.addEventListener('focus', handleFocus)
-    return () => {
-      window.removeEventListener('focus', handleFocus)
-    }
-  }, [classId, currentPage, fetchAssignments, loading])
+  // Note: Window focus listener removed to prevent excessive API calls
+  // Cache invalidation now happens only on first mount or after mutations
+  // If stale data is a concern, users can manually refresh or cache TTL can be adjusted
 
   // Fetch classInfo separately (only once per classId)
   useEffect(() => {

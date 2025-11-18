@@ -1,7 +1,7 @@
 'use client'
 
 // React Imports
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, useParams, usePathname } from 'next/navigation'
 
 // Lucide Icons
@@ -20,6 +20,9 @@ import Alert from '@mui/material/Alert'
 
 // Service Imports
 import { classService } from '@/services/class.service'
+
+// Cache Imports
+import { cacheManager, CACHE_KEYS, CACHE_DURATION } from '@/utils/cacheManager'
 
 // Type Imports
 type ClassInfo = {
@@ -44,44 +47,32 @@ const ClassCard = () => {
   const [classes, setClasses] = useState<ClassInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const hasRestoredRef = useRef(false)
 
   useEffect(() => {
     fetchApprovedClasses()
   }, [])
 
-  // Restore last viewed class after classes are loaded
-  // Only restore if we're on the list page (not detail page) and there's a saved classId
-  // Only restore once when component mounts
+  // Clear lastViewedClassId when on the list page to prevent auto-redirect on back button
   useEffect(() => {
-    // Check if we're on the list page (not detail page)
     const isListPage = pathname === `/${lang}/my-classes`
-
-    if (isListPage && classes.length > 0 && !loading && !hasRestoredRef.current) {
-      const savedClassId = sessionStorage.getItem('lastViewedClassId')
-      if (savedClassId) {
-        // Check if the class exists in the list
-        const classExists = classes.some(c => c.class._id === savedClassId)
-        if (classExists) {
-          hasRestoredRef.current = true
-          // Small delay to avoid flickering
-          const timer = setTimeout(() => {
-            router.push(`/${lang}/my-classes/${savedClassId}`)
-          }, 100)
-          return () => clearTimeout(timer)
-        } else {
-          // Clear if class doesn't exist anymore
-          sessionStorage.removeItem('lastViewedClassId')
-        }
-      }
+    if (isListPage) {
+      sessionStorage.removeItem('lastViewedClassId')
     }
-  }, [classes, loading, lang, router, pathname])
+  }, [pathname, lang])
 
   const fetchApprovedClasses = async () => {
     setLoading(true)
     setError(null)
 
     try {
+      // Try to get from cache first
+      const cachedClasses = cacheManager.get<ClassInfo[]>(CACHE_KEYS.STUDENT_APPLICATIONS)
+      if (cachedClasses) {
+        setClasses(cachedClasses)
+        setLoading(false)
+        return
+      }
+
       const response = await classService.getStudentApplications()
 
       if (response.success && response.data?.classes) {
@@ -92,10 +83,21 @@ const ClassCard = () => {
         const classesWithTeachers = await Promise.all(
           approvedClasses.map(async (app: ClassInfo) => {
             try {
-              const classInfo = await classService.getClassByCode(app.class.class_code)
+              // Check cache for class info first
+              const cacheKey = CACHE_KEYS.CLASS_BY_CODE(app.class.class_code)
+              let classInfo = cacheManager.get(cacheKey)
+
+              if (!classInfo) {
+                // If not in cache, fetch from API
+                const apiResponse = await classService.getClassByCode(app.class.class_code)
+                classInfo = apiResponse.data
+                // Cache the result
+                cacheManager.set(cacheKey, classInfo, CACHE_DURATION.LONG)
+              }
+
               return {
                 ...app,
-                teacherName: classInfo.data?.teacher?.full_name || 'Chưa có thông tin'
+                teacherName: classInfo?.teacher?.full_name || 'Chưa có thông tin'
               }
             } catch (error) {
               return {
@@ -106,6 +108,8 @@ const ClassCard = () => {
           })
         )
 
+        // Cache the final result
+        cacheManager.set(CACHE_KEYS.STUDENT_APPLICATIONS, classesWithTeachers, CACHE_DURATION.MEDIUM)
         setClasses(classesWithTeachers)
       } else {
         setError(response.message || 'Không thể tải danh sách lớp học')

@@ -76,8 +76,9 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
   const [submitting, setSubmitting] = useState(false)
   const [checkingSubmission, setCheckingSubmission] = useState(true)
   const classIdRef = useRef<string | null>(null) // Store classId for redirect
+  const answersStorageKeyRef = useRef<string>('') // Store localStorage key for answers
 
-  // Initialize startTime from sessionStorage or create new one
+  // Initialize startTime from sessionStorage and restore answers from localStorage
   useEffect(() => {
     if (startTimeRef.current === null) {
       const savedStartTime = typeof window !== 'undefined' ? sessionStorage.getItem(`quiz_start_${quizId}`) : null
@@ -90,7 +91,34 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
         }
       }
     }
+
+    // Set up localStorage key for answers
+    answersStorageKeyRef.current = `quiz_answers_${quizId}`
+
+    // Restore answers from localStorage if they exist
+    if (typeof window !== 'undefined') {
+      const savedAnswers = localStorage.getItem(answersStorageKeyRef.current)
+      if (savedAnswers) {
+        try {
+          const parsedAnswers = JSON.parse(savedAnswers)
+          setAnswers(parsedAnswers)
+        } catch (err) {
+          console.error('Error parsing saved answers:', err)
+        }
+      }
+    }
   }, [quizId])
+
+  // Auto-save answers to localStorage whenever they change
+  useEffect(() => {
+    if (typeof window !== 'undefined' && answersStorageKeyRef.current && Object.keys(answers).length > 0) {
+      try {
+        localStorage.setItem(answersStorageKeyRef.current, JSON.stringify(answers))
+      } catch (err) {
+        console.error('Error saving answers to localStorage:', err)
+      }
+    }
+  }, [answers])
 
   useEffect(() => {
     const checkAndLoad = async () => {
@@ -322,6 +350,10 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
         // Mark as submitted in sessionStorage
         if (typeof window !== 'undefined' && classQuizzIdFromUrl) {
           sessionStorage.setItem(`quiz_submitted_${classQuizzIdFromUrl}`, 'true')
+          // Clear answers from localStorage after successful submission
+          if (answersStorageKeyRef.current) {
+            localStorage.removeItem(answersStorageKeyRef.current)
+          }
         }
 
         // Always navigate to result page after successful submission
@@ -584,14 +616,14 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
           flex: 1,
           px: { xs: 2, sm: 3, lg: 4 },
           py: 4,
-          pb: 16
+          pb: 4
         }}
       >
         <Box sx={{ width: '100%' }}>
           {/* Progress Bar */}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             <Typography variant='body2' sx={{ textAlign: 'center', fontWeight: 500 }}>
-              Question {currentQuestion + 1} of {questions.length}
+              Câu {currentQuestion + 1} của {questions.length}
             </Typography>
             <Box
               sx={{
@@ -627,7 +659,7 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
             }}
           >
             <Typography variant='h4' sx={{ fontWeight: 700, fontSize: { xs: '1.5rem', sm: '1.875rem' }, mb: 2 }}>
-              Question {currentQuestion + 1}
+              Câu {currentQuestion + 1}
             </Typography>
             <Typography variant='body1' sx={{ fontSize: { xs: '1rem', sm: '1.125rem' }, lineHeight: 1.75, mb: 3 }}>
               {currentQ.question}
@@ -694,77 +726,68 @@ const TakeQuiz = ({ quizId, quizzClassId }: { quizId: string; quizzClassId?: str
                 )
               })}
             </Box>
-          </Box>
-        </Box>
-      </Box>
 
-      {/* Navigation Footer */}
-      <Box
-        component='footer'
-        sx={{
-          position: 'absolute',
-          bottom: 0,
-          zIndex: 10,
-          width: '100%'
-        }}
-      >
-        <Box
-          sx={{
-            maxWidth: '1200px',
-            mx: 'auto',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            p: 2,
-            px: { xs: 2, sm: 3, lg: 4 }
-          }}
-        >
-          <Button
-            variant='outlined'
-            onClick={handlePrevious}
-            disabled={currentQuestion === 0}
-            startIcon={<ArrowLeft size={18} />}
-            sx={{
-              borderRadius: 2,
-              textTransform: 'none',
-              fontWeight: 600,
-              '&:hover': {
-                bgcolor: 'action.hover'
-              },
-              '&.Mui-disabled': {
-                opacity: 0.5
-              }
-            }}
-          >
-            Câu trước
-          </Button>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {currentQuestion < questions.length - 1 ? (
+            {/* Navigation Buttons - Below Answers */}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 2,
+                mt: 6,
+                pt: 4,
+                borderTop: '1px solid',
+                borderColor: 'divider'
+              }}
+            >
               <Button
-                variant='contained'
-                onClick={handleNext}
-                endIcon={<ArrowRight size={18} />}
+                variant='outlined'
+                onClick={handlePrevious}
+                disabled={currentQuestion === 0}
+                startIcon={<ArrowLeft size={18} />}
                 sx={{
                   borderRadius: 2,
                   textTransform: 'none',
-                  fontWeight: 600
+                  fontWeight: 600,
+                  '&:hover': {
+                    bgcolor: 'action.hover'
+                  },
+                  '&.Mui-disabled': {
+                    opacity: 0.5
+                  }
                 }}
               >
-                Câu tiếp theo
+                Câu trước
               </Button>
-            ) : null}
-            <Button
-              variant='contained'
-              color='success'
-              onClick={handleSubmitClick}
-              sx={{
-                borderRadius: 2,
-                textTransform: 'none',
-                fontWeight: 600
-              }}
-            >
-              Nộp bài
-            </Button>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {currentQuestion < questions.length - 1 ? (
+                  <Button
+                    variant='contained'
+                    onClick={handleNext}
+                    endIcon={<ArrowRight size={18} />}
+                    sx={{
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      fontWeight: 600
+                    }}
+                  >
+                    Câu tiếp theo
+                  </Button>
+                ) : null}
+                <Button
+                  variant='contained'
+                  color='success'
+                  onClick={handleSubmitClick}
+                  sx={{
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    fontWeight: 600
+                  }}
+                >
+                  Nộp bài
+                </Button>
+              </Box>
+            </Box>
           </Box>
         </Box>
       </Box>
