@@ -41,19 +41,16 @@ export const StyledMenuItem = styled(MenuItem)(({ theme }) => ({
   padding: theme.spacing(1, 1.5),
   borderRadius: '8px',
   margin: theme.spacing(0.25, 0.5),
+  '& .conversation-actions': {
+    opacity: 1 // Always show buttons
+  },
   '&:hover': {
-    backgroundColor: theme.palette.primary.main + '15',
-    '& .conversation-actions': {
-      opacity: 1
-    }
+    backgroundColor: theme.palette.primary.main + '15'
   },
   '&.Mui-selected': {
     backgroundColor: theme.palette.primary.main + '25',
     '&:hover': {
       backgroundColor: theme.palette.primary.main + '35'
-    },
-    '& .conversation-actions': {
-      opacity: 1
     }
   }
 }))
@@ -116,9 +113,10 @@ export const ConversationDate = styled(Typography)(({ theme }) => ({
 export const ConversationActions = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
-  gap: theme.spacing(0.25),
-  opacity: 0,
-  transition: 'opacity 0.2s ease'
+  gap: theme.spacing(0.5),
+  flexShrink: 0,
+  pointerEvents: 'auto',
+  zIndex: 1
 }))
 
 export const Container = styled(Box)({
@@ -154,13 +152,24 @@ export const DeleteButton = styled(IconButton)(({ theme }) => ({
   padding: theme.spacing(0.5),
   width: '28px',
   height: '28px',
+  minWidth: '28px',
   color: theme.palette.error.main,
   transition: 'all 0.2s ease',
   borderRadius: '6px',
+  flexShrink: 0,
+  pointerEvents: 'auto',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
   '&:hover': {
     backgroundColor: theme.palette.error.main + '15',
     color: theme.palette.error.dark,
     transform: 'scale(1.1)'
+  },
+  '&:disabled': {
+    opacity: 0.5,
+    cursor: 'not-allowed'
   }
 }))
 
@@ -168,13 +177,23 @@ export const EditButton = styled(IconButton)(({ theme }) => ({
   padding: theme.spacing(0.5),
   width: '28px',
   height: '28px',
+  minWidth: '28px',
   color: theme.palette.primary.main,
   transition: 'all 0.2s ease',
   borderRadius: '6px',
+  flexShrink: 0,
+  pointerEvents: 'auto',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
   '&:hover': {
     backgroundColor: theme.palette.primary.main + '15',
     color: theme.palette.primary.dark,
     transform: 'scale(1.1)'
+  },
+  '&:disabled': {
+    opacity: 0.5,
+    cursor: 'not-allowed'
   }
 }))
-

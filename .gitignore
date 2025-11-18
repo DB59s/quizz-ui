@@ -41,3 +41,6 @@ next-env.d.ts
 src/assets/iconify-icons/generated-icons.js
 src/assets/iconify-icons/generated-icons.css
 *lock.json
+
+
+.claude

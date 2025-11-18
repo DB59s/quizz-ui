@@ -3,6 +3,8 @@
 // React Imports
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 
+import { toast } from 'react-toastify'
+
 // MUI Imports
 import Box from '@mui/material/Box'
 import Select from '@mui/material/Select'
@@ -37,8 +39,6 @@ import {
   ConversationTitle,
   ConversationDate,
   ConversationActions,
-  Container,
-  NewConversationButton,
   DeleteButton,
   EditButton
 } from './styles/PastConversationsDropdown.styles'
@@ -47,8 +47,6 @@ import {
 
 export type PastConversationsDropdownProps = {
   onConversationSelect?: (conversation: Conversation, messages: any[]) => void
-  onNewConversation?: (conversation: Conversation) => void
-  onStartNewConversation?: () => void
   currentConversationId?: string | null
   onConversationUpdate?: (conversation: Conversation) => void
   cachedConversations?: Conversation[]
@@ -59,8 +57,6 @@ export type PastConversationsDropdownProps = {
 
 const PastConversationsDropdown = ({
   onConversationSelect,
-  onNewConversation,
-  onStartNewConversation,
   currentConversationId,
   onConversationUpdate,
   cachedConversations = [],
@@ -69,7 +65,6 @@ const PastConversationsDropdown = ({
   const [conversations, setConversations] = useState<Conversation[]>(cachedConversations)
   const [selectedId, setSelectedId] = useState<string>('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [conversationToDelete, setConversationToDelete] = useState<Conversation | null>(null)
@@ -90,6 +85,7 @@ const PastConversationsDropdown = ({
   useEffect(() => {
     if (cachedConversations.length > 0) {
       const uniqueConversations = removeDuplicateConversations(cachedConversations)
+
       setConversations(uniqueConversations)
       setDisplayedConversations(uniqueConversations.slice(0, INITIAL_LIMIT))
       setHasMore(uniqueConversations.length > INITIAL_LIMIT)
@@ -102,20 +98,20 @@ const PastConversationsDropdown = ({
   const fetchInitialConversations = useCallback(async () => {
     try {
       setLoading(true)
-      setError(null)
       const response = await chatbotService.getConversations(INITIAL_LIMIT, 0)
       const fetchedConversations = response.data || []
       const uniqueConversations = removeDuplicateConversations(fetchedConversations)
+
       setConversations(uniqueConversations)
       setDisplayedConversations(uniqueConversations)
       setHasMore(uniqueConversations.length >= INITIAL_LIMIT)
       setOffset(INITIAL_LIMIT)
       hasFetchedRef.current = true
+
       if (onConversationsChange) {
         onConversationsChange(uniqueConversations)
       }
     } catch (err) {
-      setError('Failed to load conversations')
       console.error('Error fetching conversations:', err)
     } finally {
       setLoading(false)
@@ -126,6 +122,7 @@ const PastConversationsDropdown = ({
     if (hasFetchedRef.current || conversations.length > 0) {
       return
     }
+
     fetchInitialConversations()
   }, [conversations.length, fetchInitialConversations])
 
@@ -142,19 +139,25 @@ const PastConversationsDropdown = ({
         setConversations(prev => {
           const existingIds = new Set(prev.map(c => c.id))
           const uniqueNew = newConversations.filter(c => !existingIds.has(c.id))
+
           if (uniqueNew.length === 0) {
             setHasMore(false)
+
             return prev
           }
+
           const updated = [...prev, ...uniqueNew]
+
           if (onConversationsChange) {
             onConversationsChange(updated)
           }
+
           return updated
         })
         setDisplayedConversations(prev => {
           const existingIds = new Set(prev.map(c => c.id))
           const uniqueNew = newConversations.filter(c => !existingIds.has(c.id))
+
           return uniqueNew.length > 0 ? [...prev, ...uniqueNew] : prev
         })
         setOffset(prev => prev + newConversations.length)
@@ -164,7 +167,6 @@ const PastConversationsDropdown = ({
       }
     } catch (err) {
       console.error('Error loading more conversations:', err)
-      setError('Failed to load more conversations')
     } finally {
       setLoadingMore(false)
     }
@@ -206,6 +208,7 @@ const PastConversationsDropdown = ({
       if (selected && onConversationSelect) {
         try {
           const messagesResponse = await chatbotService.getMessages(conversationId)
+
           onConversationSelect(selected, messagesResponse.data || [])
         } catch (err) {
           console.error('Error fetching messages:', err)
@@ -216,32 +219,30 @@ const PastConversationsDropdown = ({
     [conversations, onConversationSelect]
   )
 
-  const handleCreateConversation = useCallback(() => {
-    if (onStartNewConversation) {
-      onStartNewConversation()
-    }
-    setSelectedId('')
-  }, [onStartNewConversation])
-
   // Method to add/update conversation in the list (called from parent)
   const updateConversationInList = useCallback(
     (conversation: Conversation) => {
       setConversations(prev => {
         const filtered = prev.filter(c => c.id !== conversation.id)
         const updated = [conversation, ...filtered]
+
         if (onConversationsChange) {
           onConversationsChange(updated)
         }
+
         return updated
       })
       setDisplayedConversations(prev => {
         const existingIndex = prev.findIndex(c => c.id === conversation.id)
+
         if (existingIndex >= 0) {
           const filtered = prev.filter(c => c.id !== conversation.id)
+
           return [conversation, ...filtered]
         } else if (prev.length < INITIAL_LIMIT) {
           return [conversation, ...prev]
         }
+
         return prev
       })
       setSelectedId(conversation.id)
@@ -255,16 +256,42 @@ const PastConversationsDropdown = ({
       // Store the update function reference
       ;(window as any).__updateConversationInDropdown = updateConversationInList
     }
+
     return () => {
       delete (window as any).__updateConversationInDropdown
     }
   }, [onConversationUpdate])
 
-  const handleDeleteClick = useCallback((conversation: Conversation, e: React.MouseEvent) => {
-    e.stopPropagation()
-    setConversationToDelete(conversation)
-    setDeleteDialogOpen(true)
-  }, [])
+  const handleDeleteClick = useCallback(
+    (conversation: Conversation, e: React.MouseEvent | React.MouseEvent<HTMLButtonElement>) => {
+      e.stopPropagation()
+      e.preventDefault()
+      setConversationToDelete(conversation)
+      setDeleteDialogOpen(true)
+    },
+    []
+  )
+
+  const handleEditTitleClick = useCallback(
+    (conversation: Conversation, e: React.MouseEvent | React.MouseEvent<HTMLButtonElement>) => {
+      e.stopPropagation()
+      e.preventDefault()
+
+      // Use setImmediate to ensure dialog opens after Select menu closes
+      if (typeof setImmediate !== 'undefined') {
+        setImmediate(() => {
+          setConversationToEdit(conversation)
+          setEditTitle(conversation.title)
+          setEditDialogOpen(true)
+        })
+      } else {
+        setConversationToEdit(conversation)
+        setEditTitle(conversation.title)
+        setEditDialogOpen(true)
+      }
+    },
+    []
+  )
 
   const handleDeleteConfirm = useCallback(async () => {
     if (!conversationToDelete) return
@@ -272,22 +299,42 @@ const PastConversationsDropdown = ({
     try {
       setDeletingId(conversationToDelete.id)
       const response = await chatbotService.deleteConversation(conversationToDelete.id)
+
       if (response.success) {
         setConversations(prev => {
           const updated = prev.filter(c => c.id !== conversationToDelete.id)
+
           if (onConversationsChange) {
             onConversationsChange(updated)
           }
+
           return updated
         })
         setDisplayedConversations(prev => prev.filter(c => c.id !== conversationToDelete.id))
+
         if (selectedId === conversationToDelete.id) {
           setSelectedId('')
         }
+
+        toast.success('Xóa cuộc trò chuyện thành công', {
+          position: 'top-right',
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true
+        })
       }
     } catch (err) {
       console.error('Error deleting conversation:', err)
-      setError('Failed to delete conversation')
+      toast.error('Không thể xóa cuộc trò chuyện', {
+        position: 'top-right',
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true
+      })
     } finally {
       setDeletingId(null)
       setDeleteDialogOpen(false)
@@ -298,13 +345,6 @@ const PastConversationsDropdown = ({
   const handleDeleteCancel = useCallback(() => {
     setDeleteDialogOpen(false)
     setConversationToDelete(null)
-  }, [])
-
-  const handleEditClick = useCallback((conversation: Conversation, e: React.MouseEvent) => {
-    e.stopPropagation()
-    setConversationToEdit(conversation)
-    setEditTitle(conversation.title)
-    setEditDialogOpen(true)
   }, [])
 
   const handleEditCancel = useCallback(() => {
@@ -319,22 +359,40 @@ const PastConversationsDropdown = ({
     try {
       setUpdatingId(conversationToEdit.id)
       const response = await chatbotService.updateConversation(conversationToEdit.id, editTitle.trim())
+
       if (response.success && response.data) {
         setConversations(prev => {
           const updated = prev.map(c => (c.id === conversationToEdit.id ? response.data : c))
+
           if (onConversationsChange) {
             onConversationsChange(updated)
           }
+
           return updated
         })
         setDisplayedConversations(prev => prev.map(c => (c.id === conversationToEdit.id ? response.data : c)))
         setEditDialogOpen(false)
         setConversationToEdit(null)
         setEditTitle('')
+        toast.success('Cập nhật tiêu đề thành công', {
+          position: 'top-right',
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true
+        })
       }
     } catch (err) {
       console.error('Error updating conversation:', err)
-      setError('Failed to update conversation')
+      toast.error('Không thể cập nhật tiêu đề', {
+        position: 'top-right',
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true
+      })
     } finally {
       setUpdatingId(null)
     }
@@ -346,13 +404,20 @@ const PastConversationsDropdown = ({
       PaperProps: {
         onScroll: handleMenuScroll,
         style: {
-          maxHeight: 300
+          maxHeight: '50vh'
         },
         ref: menuScrollRef
       },
       MenuListProps: {
         style: {
           padding: 0
+        }
+      },
+      slotProps: {
+        paper: {
+          sx: {
+            maxHeight: '50vh'
+          }
         }
       }
     }),
@@ -370,6 +435,7 @@ const PastConversationsDropdown = ({
     (value: string) => {
       if (!value) return 'Chọn từ lịch sử...'
       if (!selectedConversation) return 'Chọn từ lịch sử...'
+
       return truncateText(selectedConversation.title, 25)
     },
     [selectedConversation]
@@ -393,69 +459,91 @@ const PastConversationsDropdown = ({
   }
 
   return (
-    <Container>
-      <StyledFormControl size='small' sx={{ flex: '0 0 calc(50% - 4px)' }}>
-        <Select
-          value={selectedId}
-          onChange={e => handleSelectChange(e.target.value)}
-          displayEmpty
-          MenuProps={menuProps}
-          renderValue={renderValue}
-        >
-          {displayedConversations.map(conversation => (
-            <StyledMenuItem key={conversation.id} value={conversation.id}>
-              <ConversationItemBox>
-                <ConversationContent>
-                  <ConversationTitle title={conversation.title}>
-                    {truncateText(conversation.title, 50)}
-                  </ConversationTitle>
-                  <ConversationDate>{formatConversationDate(conversation.created_at)}</ConversationDate>
-                </ConversationContent>
-                <ConversationActions className='conversation-actions'>
-                  <EditButton
-                    size='small'
-                    onClick={e => handleEditClick(conversation, e)}
-                    disabled={updatingId === conversation.id || deletingId === conversation.id}
-                    title='Sửa tiêu đề'
-                  >
-                    {updatingId === conversation.id ? <CircularProgress size={14} /> : <Edit2 size={14} />}
-                  </EditButton>
-                  <DeleteButton
-                    size='small'
-                    onClick={e => handleDeleteClick(conversation, e)}
-                    disabled={deletingId === conversation.id || updatingId === conversation.id}
-                    title='Xóa cuộc trò chuyện'
-                  >
-                    {deletingId === conversation.id ? <CircularProgress size={14} /> : <Trash2 size={14} />}
-                  </DeleteButton>
-                </ConversationActions>
-              </ConversationItemBox>
-            </StyledMenuItem>
-          ))}
-          {loadingMore && (
-            <StyledMenuItem disabled>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', py: 1 }}>
-                <CircularProgress size={16} />
-                <Typography sx={{ fontSize: '12px', color: 'text.secondary', ml: 1 }}>Đang tải thêm...</Typography>
-              </Box>
-            </StyledMenuItem>
-          )}
-          {!hasMore && displayedConversations.length > 0 && (
-            <StyledMenuItem disabled>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', py: 0.5 }}>
-                <Typography sx={{ fontSize: '11px', color: 'text.secondary', fontStyle: 'italic' }}>
-                  Đã hiển thị tất cả
-                </Typography>
-              </Box>
-            </StyledMenuItem>
-          )}
-        </Select>
-      </StyledFormControl>
-      <NewConversationButton onClick={handleCreateConversation}>Tạo cuộc trò chuyện mới</NewConversationButton>
+    <StyledFormControl size='small' fullWidth>
+      <Select
+        value={selectedId}
+        onChange={e => handleSelectChange(e.target.value)}
+        displayEmpty
+        MenuProps={menuProps}
+        renderValue={renderValue}
+      >
+        {displayedConversations.map(conversation => (
+          <StyledMenuItem key={conversation.id} value={conversation.id}>
+            <ConversationItemBox>
+              <ConversationContent>
+                <ConversationTitle title={conversation.title}>{truncateText(conversation.title, 50)}</ConversationTitle>
+                <ConversationDate>{formatConversationDate(conversation.created_at)}</ConversationDate>
+              </ConversationContent>
+              <ConversationActions className='conversation-actions'>
+                <EditButton
+                  size='small'
+                  onMouseDown={e => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    handleEditTitleClick(conversation, e)
+                  }}
+                  onTouchStart={e => {
+                    handleEditTitleClick(conversation, e as any)
+                  }}
+                  disabled={updatingId === conversation.id || deletingId === conversation.id}
+                  title='Sửa tiêu đề'
+                  aria-label='Sửa tiêu đề'
+                >
+                  {updatingId === conversation.id ? <CircularProgress size={14} /> : <Edit2 size={14} />}
+                </EditButton>
+                <DeleteButton
+                  size='small'
+                  onMouseDown={e => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    handleDeleteClick(conversation, e)
+                  }}
+                  onTouchStart={e => {
+                    handleDeleteClick(conversation, e as any)
+                  }}
+                  disabled={deletingId === conversation.id || updatingId === conversation.id}
+                  title='Xóa cuộc trò chuyện'
+                  aria-label='Xóa'
+                >
+                  {deletingId === conversation.id ? <CircularProgress size={14} /> : <Trash2 size={14} />}
+                </DeleteButton>
+              </ConversationActions>
+            </ConversationItemBox>
+          </StyledMenuItem>
+        ))}
+        {loadingMore && (
+          <StyledMenuItem disabled>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', py: 1 }}>
+              <CircularProgress size={16} />
+              <Typography sx={{ fontSize: '12px', color: 'text.secondary', ml: 1 }}>Đang tải thêm...</Typography>
+            </Box>
+          </StyledMenuItem>
+        )}
+        {!hasMore && displayedConversations.length > 0 && (
+          <StyledMenuItem disabled>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', py: 0.5 }}>
+              <Typography sx={{ fontSize: '11px', color: 'text.secondary', fontStyle: 'italic' }}>
+                Đã hiển thị tất cả
+              </Typography>
+            </Box>
+          </StyledMenuItem>
+        )}
+      </Select>
 
       {/* Edit Conversation Dialog */}
-      <Dialog open={editDialogOpen} onClose={handleEditCancel} maxWidth='sm' fullWidth>
-        <DialogTitle>Sửa tiêu đề cuộc trò chuyện</DialogTitle>
+      <Dialog
+        open={editDialogOpen}
+        onClose={handleEditCancel}
+        maxWidth='sm'
+        fullWidth
+        slotProps={{
+          backdrop: {
+            sx: { zIndex: 1300 }
+          }
+        }}
+        sx={{ zIndex: 1300 }}
+      >
+        <DialogTitle sx={{ fontWeight: 600, fontSize: '16px' }}>Sửa tiêu đề cuộc trò chuyện</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
@@ -472,11 +560,12 @@ const PastConversationsDropdown = ({
               }
             }}
             disabled={updatingId !== null}
-            sx={{ mt: 1 }}
+            sx={{ mt: 2 }}
+            placeholder='Nhập tiêu đề mới cho cuộc trò chuyện'
           />
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleEditCancel} variant='outlined' color='secondary' disabled={updatingId !== null}>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button onClick={handleEditCancel} variant='outlined' disabled={updatingId !== null}>
             Hủy
           </Button>
           <Button
@@ -484,31 +573,66 @@ const PastConversationsDropdown = ({
             variant='contained'
             color='primary'
             disabled={!editTitle.trim() || updatingId !== null}
+            sx={{ minWidth: '80px' }}
           >
-            {updatingId ? <CircularProgress size={20} /> : 'Lưu'}
+            {updatingId ? <CircularProgress size={16} /> : 'Lưu'}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={handleDeleteCancel} maxWidth='sm' fullWidth>
-        <DialogTitle>Xác nhận xóa</DialogTitle>
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+        maxWidth='sm'
+        fullWidth
+        slotProps={{
+          backdrop: {
+            sx: { zIndex: 1300 }
+          }
+        }}
+        sx={{ zIndex: 1300 }}
+      >
+        <DialogTitle sx={{ fontWeight: 600, fontSize: '16px' }}>Xác nhận xóa cuộc trò chuyện</DialogTitle>
         <DialogContent>
-          <Typography>
-            Bạn có chắc chắn muốn xóa cuộc trò chuyện <strong>"{conversationToDelete?.title}"</strong> ? Hành động này
-            không thể hoàn tác.
-          </Typography>
+          <Box sx={{ py: 1 }}>
+            <Typography sx={{ mb: 1 }}>Bạn có chắc chắn muốn xóa cuộc trò chuyện này?</Typography>
+            <Typography
+              sx={{
+                p: 1.5,
+                backgroundColor: 'error.lighter',
+                borderLeft: '3px solid',
+                borderColor: 'error.main',
+                borderRadius: '4px',
+                color: 'error.main',
+                fontWeight: 500,
+                fontSize: '13px',
+                wordBreak: 'break-word'
+              }}
+            >
+              &quot;{conversationToDelete?.title}&quot;
+            </Typography>
+            <Typography sx={{ mt: 1.5, fontSize: '13px', color: 'text.secondary' }}>
+              Hành động này không thể hoàn tác.
+            </Typography>
+          </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleDeleteCancel} variant='outlined' color='secondary'>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button onClick={handleDeleteCancel} variant='outlined' disabled={deletingId !== null}>
             Hủy
           </Button>
-          <Button onClick={handleDeleteConfirm} variant='contained' color='error' disabled={deletingId !== null}>
-            {deletingId ? <CircularProgress size={20} /> : 'Xóa'}
+          <Button
+            onClick={handleDeleteConfirm}
+            variant='contained'
+            color='error'
+            disabled={deletingId !== null}
+            sx={{ minWidth: '80px' }}
+          >
+            {deletingId ? <CircularProgress size={16} color='error' /> : 'Xóa'}
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </StyledFormControl>
   )
 }
 
