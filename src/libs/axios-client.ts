@@ -6,7 +6,7 @@ const isClient = typeof window !== 'undefined'
 // Create axios instance
 const axiosClient: AxiosInstance = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://vuquangduy.io.vn',
-  timeout: 30000,
+  timeout: 60000, // Increased timeout to 60s
   headers: {
     'Content-Type': 'application/json'
   }
@@ -47,6 +47,9 @@ axiosClient.interceptors.request.use(
 )
 
 // Response interceptor - Handle errors
+let retryCount = 0
+const MAX_RETRIES = 1
+
 axiosClient.interceptors.response.use(
   response => {
     return response
@@ -65,6 +68,29 @@ axiosClient.interceptors.response.use(
       }
     }
 
+    // Handle timeout errors with retry
+    if ((error.code === 'ECONNABORTED' || error.message?.includes('timeout')) && retryCount < MAX_RETRIES) {
+      console.warn('Request timeout, retrying...', error.config?.url)
+      retryCount++
+
+      // Retry the request after a short delay
+      return new Promise((resolve, reject) => {
+        setTimeout(() => {
+          axiosClient.request(error.config as AxiosRequestConfig)
+            .then(() => {
+              retryCount = 0
+              resolve({} as any)
+            })
+            .catch((retryError) => {
+              retryCount = 0
+              console.error('Retry failed:', retryError)
+              reject(retryError)
+            })
+        }, 500)
+      })
+    }
+
+    retryCount = 0
     return Promise.reject(error)
   }
 )

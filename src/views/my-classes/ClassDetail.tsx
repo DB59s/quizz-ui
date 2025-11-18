@@ -21,6 +21,9 @@ import ClassAssignments from './ClassAssignments'
 // Service Imports
 import { classService } from '@/services/class.service'
 
+// Cache Imports
+import { cacheManager, CACHE_KEYS, CACHE_DURATION } from '@/utils/cacheManager'
+
 type ClassInfo = {
   id: string
   name: string
@@ -57,45 +60,76 @@ const ClassDetail = ({ classId }: { classId: string }) => {
   const router = useRouter()
   const params = useParams()
   const lang = (params?.lang as string) || 'en'
-  const [tabValue, setTabValue] = useState(0)
+
+  // Initialize tabValue from sessionStorage or default to 0
+  const [tabValue, setTabValue] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedTab = sessionStorage.getItem(`classDetail_tab_${classId}`)
+      return savedTab ? parseInt(savedTab, 10) : 0
+    }
+    return 0
+  })
+
   const [classInfo, setClassInfo] = useState<ClassInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Save classId to sessionStorage when viewing detail
-    if (classId) {
-      sessionStorage.setItem('lastViewedClassId', classId)
-    }
+    // Fetch class info when classId changes
     fetchClassInfo()
   }, [classId])
+
+  useEffect(() => {
+    // Save active tab to sessionStorage whenever it changes
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(`classDetail_tab_${classId}`, tabValue.toString())
+    }
+  }, [tabValue, classId])
 
   const fetchClassInfo = async () => {
     setLoading(true)
     setError(null)
 
     try {
-      const response = await classService.getStudentApplications()
+      // Try to get from cache first
+      const cachedApplications = cacheManager.get<any[]>(CACHE_KEYS.STUDENT_APPLICATIONS)
+      let foundClass = cachedApplications?.find((app: any) => app.class._id === classId)
 
-      if (response.success && response.data?.classes) {
-        const foundClass = response.data.classes.find((app: any) => app.class._id === classId)
-        
-        if (foundClass) {
-          // Fetch teacher info
-          const classRes = await classService.getClassByCode(foundClass.class.class_code)
-          
-          setClassInfo({
-            id: foundClass.class._id,
-            name: foundClass.class.name,
-            code: foundClass.class.class_code,
-            teacher: classRes.data?.teacher?.full_name || 'Chưa có thông tin',
-            description: foundClass.class.description || 'Không có mô tả',
-            maxStudents: foundClass.class.max_students,
-            currentStudents: foundClass.class.current_students
-          })
-        } else {
-          setError('Không tìm thấy thông tin lớp học')
+      // If not in cache, fetch from API
+      if (!foundClass) {
+        const response = await classService.getStudentApplications()
+
+        if (response.success && response.data?.classes) {
+          foundClass = response.data.classes.find((app: any) => app.class._id === classId)
+          // Cache the applications
+          cacheManager.set(CACHE_KEYS.STUDENT_APPLICATIONS, response.data.classes, CACHE_DURATION.MEDIUM)
         }
+      }
+
+      if (foundClass) {
+        // Check cache for class info
+        const cacheKey = CACHE_KEYS.CLASS_BY_CODE(foundClass.class.class_code)
+        let classRes = cacheManager.get(cacheKey)
+
+        if (!classRes) {
+          // If not in cache, fetch from API
+          const apiResponse = await classService.getClassByCode(foundClass.class.class_code)
+          classRes = apiResponse
+          // Cache the result
+          cacheManager.set(cacheKey, apiResponse, CACHE_DURATION.LONG)
+        }
+
+        setClassInfo({
+          id: foundClass.class._id,
+          name: foundClass.class.name,
+          code: foundClass.class.class_code,
+          teacher: classRes?.data?.teacher?.full_name || 'Chưa có thông tin',
+          description: foundClass.class.description || 'Không có mô tả',
+          maxStudents: foundClass.class.max_students,
+          currentStudents: foundClass.class.current_students
+        })
+      } else {
+        setError('Không tìm thấy thông tin lớp học')
       }
     } catch (err: any) {
       console.error('Error fetching class info:', err)
@@ -110,6 +144,8 @@ const ClassDetail = ({ classId }: { classId: string }) => {
   }
 
   const handleBack = () => {
+    // Clear the sessionStorage key so ClassCard doesn't auto-redirect
+    sessionStorage.removeItem('lastViewedClassId')
     router.push(`/${lang}/my-classes`)
   }
 

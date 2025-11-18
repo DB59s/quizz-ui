@@ -388,17 +388,32 @@ const QuizResult = ({ submissionId }: { submissionId: string }) => {
                 }}
               >
                 <Box className='flex items-center gap-4 w-full'>
-                  <Box
-                    className='flex items-center justify-center rounded-full'
-                    sx={{
-                      width: 32,
-                      height: 32,
-                      bgcolor: answer.isCorrect ? 'success.lighter' : 'error.lighter',
-                      color: answer.isCorrect ? 'success.main' : 'error.main'
-                    }}
-                  >
-                    <i className={answer.isCorrect ? 'tabler-check' : 'tabler-x'} style={{ fontSize: '1.25rem' }} />
-                  </Box>
+                  {/* Check answer status */}
+                  {(() => {
+                    // Check if selected answers match correct answers exactly
+                    // For multiple choice: all correct answers must be selected and no wrong answers
+                    // For single choice: the selected answer must match the correct answer
+                    const correctAnswers = answer.options.filter(opt => opt.is_correct).map(opt => opt.answer_id).sort()
+                    const studentSelectedAnswers = answer.options.filter(opt => opt.student_selected).map(opt => opt.answer_id).sort()
+                    const isFullyCorrect = JSON.stringify(correctAnswers) === JSON.stringify(studentSelectedAnswers)
+
+                    return (
+                      <Box
+                        className='flex items-center justify-center rounded-full'
+                        sx={{
+                          width: 32,
+                          height: 32,
+                          bgcolor: isFullyCorrect ? 'success.lighter' : 'error.lighter',
+                          color: isFullyCorrect ? 'success.main' : 'error.main'
+                        }}
+                      >
+                        <i
+                          className={isFullyCorrect ? 'tabler-check' : 'tabler-x'}
+                          style={{ fontSize: '1.25rem' }}
+                        />
+                      </Box>
+                    )
+                  })()}
                   <Typography className='font-medium text-gray-800 flex-1'>
                     Câu {index + 1}: {answer.question}
                   </Typography>

@@ -1,13 +1,8 @@
 // Component Imports
-import ClassCard from '@/views/my-classes/ClassCard'
+import MyClassesContent from '@/views/my-classes/MyClassesContent'
 
 const MyClassesPage = async () => {
-  return (
-    <div className='flex flex-col gap-6'>
-      <h1>Lớp học của bạn</h1>
-      <ClassCard />
-    </div>
-  )
+  return <MyClassesContent />
 }
 
 export default MyClassesPage

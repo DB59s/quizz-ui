@@ -18,17 +18,10 @@ const HomeNavigation = () => {
   const navigationCards = [
     {
       title: 'Lớp học của bạn',
-      description: 'Xem danh sách các lớp học mà bạn đang tham gia',
+      description: 'Xem danh sách các lớp học mà bạn đang tham gia và đăng kí lớp học mới',
       icon: 'tabler-school',
       href: `/${locale}/my-classes`,
       color: 'primary'
-    },
-    {
-      title: 'Đăng kí lớp học',
-      description: 'Tìm kiếm và đăng kí các lớp học mới',
-      icon: 'tabler-book',
-      href: `/${locale}/register-class`,
-      color: 'success'
     },
     {
       title: 'Đơn đăng kí',
