@@ -17,25 +17,14 @@ import Button from '@mui/material/Button'
 import { useTheme } from '@mui/material/styles'
 
 // Icons
-import {
-  Send,
-  X,
-  Bot,
-  User,
-  Minimize2,
-  Maximize2,
-  Trash2,
-  ArrowDown,
-  ChevronDown,
-  ChevronUp,
-  Crosshair
-} from 'lucide-react'
+import { Send, X, Bot, User, Minimize2, Maximize2, Trash2, ArrowDown } from 'lucide-react'
 
 // Component Imports
-import { useChatbot } from '@/hooks/useChatbot'
 import { useSession } from 'next-auth/react'
-import TestScenariosPanel, { type ScenarioType } from './TestScenariosPanel'
-import PastConversationsDropdown from './PastConversationsDropdown'
+
+import { useChatbot } from '@/hooks/useChatbot'
+import ChatbotHeaderActions from './components/ChatbotHeaderActions'
+import QuestionIdTag from './components/QuestionIdTag'
 import { type Conversation, chatbotService } from '@/services/chatbot.service'
 import { userService } from '@/services/user.service'
 import { debounce } from './utils/chatbot.utils'
@@ -59,27 +48,28 @@ import {
   TypingIndicator,
   TypingDot,
   ScrollToBottomButton,
-  QuestionBankPanel,
-  QuestionBankHeader,
-  QuestionBankTitle,
-  QuestionBankContent,
-  FormGroup,
-  FormLabel,
-  FormActions,
   StatusIndicator
 } from './styles/ChatbotDialog.styles'
 
 // ============= MAIN COMPONENT =============
+
+type ScenarioType = 'question_bank' | 'explain_answer' | 'generate_question' | null
 
 type ChatbotDialogProps = {
   open: boolean
   onClose: () => void
   initialQuestionContent?: string
   initialQuestionId?: string
-  initialScenario?: ScenarioType | null
+  initialScenario?: ScenarioType
 }
 
-const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionId, initialScenario }: ChatbotDialogProps) => {
+const ChatbotDialog = ({
+  open,
+  onClose,
+  initialQuestionContent,
+  initialQuestionId,
+  initialScenario
+}: ChatbotDialogProps) => {
   const theme = useTheme()
   const { data: session, status } = useSession()
 
@@ -89,9 +79,11 @@ const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionI
 
     try {
       const parts = token.split('.')
+
       if (parts.length !== 3) return null
 
       const payload = JSON.parse(atob(parts[1]))
+
       return payload.account_id || payload.accountId || payload.id || payload.sub || null
     } catch (error) {
       return null
@@ -134,10 +126,8 @@ const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionI
     conversationId
   } = useChatbot(accountId)
 
-  const [currentScenario, setCurrentScenario] = useState<ScenarioType | null>(null)
   const [questionId, setQuestionId] = useState('')
   const [questionContent, setQuestionContent] = useState('')
-  const [isQuestionBankExpanded, setIsQuestionBankExpanded] = useState(true)
   const [userFullName, setUserFullName] = useState<string>('')
   const [isCreatingConversation, setIsCreatingConversation] = useState(false)
   const [conversationError, setConversationError] = useState<string | null>(null)
@@ -147,43 +137,23 @@ const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionI
   // Handle initial values when dialog opens
   useEffect(() => {
     if (open) {
-      if (initialScenario) {
-        setCurrentScenario(initialScenario)
-        if (initialScenario === 'question_bank') {
-          setIsQuestionBankExpanded(true)
-        }
-      }
       if (initialQuestionContent) {
         setQuestionContent(initialQuestionContent)
       }
+
       if (initialQuestionId) {
         setQuestionId(initialQuestionId)
+
+        // Auto-populate input with question ID reference
+        setInputValue(`@${initialQuestionId} `)
       }
     }
-  }, [open, initialScenario, initialQuestionContent, initialQuestionId])
+  }, [open, initialQuestionContent, initialQuestionId])
 
   // Callback to update cached conversations
   const handleConversationsChange = useCallback((conversations: Conversation[]) => {
     cachedConversationsRef.current = conversations
   }, [])
-
-  // Memoize sample questions
-  const sampleQuestions = useMemo(
-    () => ({
-      question_bank: [
-        'Có bao nhiêu câu hỏi về hệ điều hành?',
-        'Cho tôi xem câu hỏi về tiến trình',
-        'Tìm câu hỏi khó về bộ nhớ'
-      ],
-      knowledge_base: [
-        'Tiến trình trong hệ điều hành là gì?',
-        'Giải thích về deadlock',
-        'Phân biệt tiến trình và luồng'
-      ],
-      general: ['Hôm nay thời tiết thế nào?', 'Kể cho tôi một câu chuyện vui', 'Bạn có thể làm gì?']
-    }),
-    []
-  )
 
   // Auto scroll to bottom when new message arrives
   useEffect(() => {
@@ -193,10 +163,12 @@ const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionI
   // Debounced scroll handler
   const handleScroll = useCallback(() => {
     const container = messagesContainerRef.current
+
     if (!container) return
 
     const { scrollTop, scrollHeight, clientHeight } = container
     const isNearBottom = scrollHeight - scrollTop - clientHeight < 100
+
     setShowScrollButton(!isNearBottom && messages.length > 0)
   }, [messages.length])
 
@@ -206,9 +178,11 @@ const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionI
   // Handle scroll to show/hide scroll button
   useEffect(() => {
     const container = messagesContainerRef.current
+
     if (!container) return
 
     container.addEventListener('scroll', throttledHandleScroll)
+
     return () => container.removeEventListener('scroll', throttledHandleScroll)
   }, [throttledHandleScroll])
 
@@ -221,33 +195,12 @@ const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionI
     inputRef.current?.focus()
   }, [])
 
-  const handleScenarioChange = useCallback(
-    (scenario: ScenarioType | null) => {
-      setCurrentScenario(scenario)
+  const handleRemoveQuestionId = useCallback(() => {
+    setQuestionId('')
 
-      if (scenario === null) {
-        setQuestionId('')
-        setQuestionContent('')
-        setInputValue('')
-        setIsQuestionBankExpanded(true)
-      } else if (scenario === 'question_bank') {
-        setQuestionId('')
-        setQuestionContent('')
-        setIsQuestionBankExpanded(true)
-      } else {
-        const samples = sampleQuestions[scenario]
-        const randomSample = samples[Math.floor(Math.random() * samples.length)]
-        setInputValue(randomSample)
-        inputRef.current?.focus()
-        setIsQuestionBankExpanded(false)
-      }
-    },
-    [sampleQuestions]
-  )
-
-  const handleToggleQuestionBank = useCallback(() => {
-    setIsQuestionBankExpanded(prev => !prev)
-  }, [])
+    // Remove @questionId from input if present
+    setInputValue(prev => prev.replace(`@${questionId} `, '').trim())
+  }, [questionId])
 
   const handleConversationSelect = useCallback(
     async (conversation: Conversation, messages: any[]) => {
@@ -256,48 +209,13 @@ const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionI
     [selectConversation]
   )
 
-  const handleSubmitQuestionBank = useCallback(() => {
-    if (!questionId.trim() && !questionContent.trim()) {
-      return
-    }
-
-    if (!connected || isLoading) {
-      return
-    }
-
-    let queryMessage = ''
-    if (questionId && questionContent) {
-      queryMessage = `Question ID: ${questionId}\nNội dung: ${questionContent}`
-    } else if (questionId) {
-      queryMessage = `Tìm thông tin về câu hỏi có ID: ${questionId}`
-    } else {
-      queryMessage = questionContent
-    }
-
-    const context: { force_type: 'question_bank'; question_id?: string } = {
-      force_type: 'question_bank'
-    }
-
-    if (questionId.trim()) {
-      context.question_id = questionId.trim()
-    }
-
-    sendMessage(queryMessage, context)
-    setQuestionId('')
-    setQuestionContent('')
-  }, [questionId, questionContent, connected, isLoading, sendMessage])
-
-  const handleClearQuestionBankForm = useCallback(() => {
-    setQuestionId('')
-    setQuestionContent('')
-  }, [])
-
   // Fetch user full_name from API
   useEffect(() => {
     if (open && session?.accessToken) {
       const fetchUserProfile = async () => {
         try {
           const response = await userService.getProfile()
+
           if (response.success && response.data?.full_name) {
             setUserFullName(response.data.full_name)
           }
@@ -305,6 +223,7 @@ const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionI
           console.error('Error fetching user profile:', error)
         }
       }
+
       fetchUserProfile()
     }
   }, [open, session?.accessToken])
@@ -318,11 +237,23 @@ const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionI
     }
   }, [open])
 
+  // Expose selectConversation to ChatbotHeaderActions
+  useEffect(() => {
+    ;(window as any).__loadConversationFromHistory = async (conversation: Conversation) => {
+      await selectConversation(conversation.id)
+    }
+
+    return () => {
+      delete (window as any).__loadConversationFromHistory
+    }
+  }, [selectConversation])
+
   // Extract conversation creation logic
   const createNewConversationIfNeeded = useCallback(
     async (title: string): Promise<string | null> => {
       if (creatingConversationRef.current) {
         console.warn('[createNewConversationIfNeeded] Creation already in progress')
+
         return null
       }
 
@@ -332,9 +263,11 @@ const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionI
         setConversationError(null)
 
         const trimmedTitle = title.length > 50 ? title.substring(0, 47) + '...' : title
+
         console.log('[createNewConversationIfNeeded] Creating conversation with title:', trimmedTitle)
 
         const response = await chatbotService.createConversation(trimmedTitle)
+
         if (response.success && response.data) {
           console.log('[createNewConversationIfNeeded] Conversation created:', response.data.id)
 
@@ -342,6 +275,7 @@ const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionI
 
           // Wait for conversationId to be updated (max 1 second)
           let retries = 0
+
           while (retries < 20 && conversationId !== response.data.id) {
             await new Promise(resolve => setTimeout(resolve, 50))
             retries++
@@ -357,11 +291,13 @@ const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionI
           return response.data.id
         } else {
           console.error('[createNewConversationIfNeeded] Failed:', response)
+
           return null
         }
       } catch (err) {
         console.error('[createNewConversationIfNeeded] Error:', err)
         setConversationError('Failed to create conversation')
+
         return null
       } finally {
         setIsCreatingConversation(false)
@@ -377,11 +313,13 @@ const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionI
     // Validation checks
     if (isSendingRef.current || creatingConversationRef.current) {
       console.warn('[handleSend] Send already in progress')
+
       return
     }
 
     if (now - lastSendTimestampRef.current < 2000 && lastInputValueRef.current === currentInput) {
       console.warn('[handleSend] Duplicate call detected')
+
       return
     }
 
@@ -400,23 +338,31 @@ const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionI
       // Create conversation if first message
       if (messages.length === 0) {
         const newConversationId = await createNewConversationIfNeeded(currentInput)
+
         if (!newConversationId) {
           isSendingRef.current = false
           creatingConversationRef.current = false
+
           return
         }
+
         conversationIdToUse = newConversationId
       }
 
-      // Prepare context
-      const context = currentScenario ? { force_type: currentScenario } : undefined
+      // Prepare context with question ID if available
+      const context: any = {}
+
+      if (questionId.trim()) {
+        context.question_id = questionId.trim()
+      }
 
       // Clear input
       const messageToSend = currentInput
+
       setInputValue('')
 
       // Send message
-      console.log('[handleSend] Sending message, conversationId:', conversationIdToUse)
+      console.log('[handleSend] Sending message, conversationId:', conversationIdToUse, 'questionId:', questionId)
       sendMessage(messageToSend, context, conversationIdToUse)
 
       // Reset flags
@@ -440,7 +386,7 @@ const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionI
     connected,
     messages.length,
     conversationId,
-    currentScenario,
+    questionId,
     createNewConversationIfNeeded,
     sendMessage
   ])
@@ -461,6 +407,7 @@ const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionI
 
         if (e.currentTarget instanceof HTMLTextAreaElement) {
           const form = e.currentTarget.closest('form')
+
           if (form) {
             e.stopPropagation()
           }
@@ -479,7 +426,7 @@ const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionI
   }, [onClose])
 
   const handleNewConversation = useCallback(async () => {
-    setCurrentScenario(null)
+    // setCurrentScenario(null)
     await startNewConversation()
   }, [startNewConversation])
 
@@ -492,6 +439,7 @@ const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionI
     (e: React.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
+
       if (!isSendingRef.current) {
         handleSend()
       }
@@ -533,6 +481,7 @@ const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionI
             </Box>
           </HeaderLeft>
           <HeaderRight>
+            <ChatbotHeaderActions onNewConversation={handleNewConversation} currentConversationId={conversationId} />
             <ActionButton size='small' onClick={handleClose} title='Đóng khung chat'>
               <X size={18} />
             </ActionButton>
@@ -546,102 +495,6 @@ const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionI
               {error || conversationError}
             </Alert>
           )}
-
-          {/* Past Conversations Dropdown */}
-          <Box
-            sx={{
-              px: 2,
-              py: 1.5,
-              display: 'flex',
-              alignItems: 'center',
-              position: 'relative',
-              zIndex: 10
-            }}
-          >
-            <PastConversationsDropdown
-              onConversationSelect={handleConversationSelect}
-              onNewConversation={async conversation => {
-                await selectConversation(conversation.id)
-              }}
-              onStartNewConversation={async () => {
-                await startNewConversation()
-              }}
-              currentConversationId={conversationId || null}
-              onConversationUpdate={conversation => {
-                // Update conversation in dropdown
-                if ((window as any).__updateConversationInDropdown) {
-                  ;(window as any).__updateConversationInDropdown(conversation)
-                }
-              }}
-              cachedConversations={cachedConversationsRef.current}
-              onConversationsChange={handleConversationsChange}
-            />
-          </Box>
-
-          {/* Question Bank Panel */}
-          <QuestionBankPanel active={currentScenario === 'question_bank'} expanded={isQuestionBankExpanded}>
-            <QuestionBankHeader onClick={handleToggleQuestionBank}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
-                <Crosshair size={20} style={{ color: theme.palette.primary.main }} />
-                <QuestionBankTitle>Question Bank - Nhập thông tin câu hỏi</QuestionBankTitle>
-              </Box>
-              <IconButton size='small' sx={{ color: 'primary.main' }}>
-                {isQuestionBankExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-              </IconButton>
-            </QuestionBankHeader>
-            <QuestionBankContent expanded={isQuestionBankExpanded}>
-              <FormGroup>
-                <FormLabel>ID Câu hỏi (Question ID):</FormLabel>
-                <TextField
-                  fullWidth
-                  size='small'
-                  placeholder='Ví dụ: 6734c1f3eab52d34087cb4aa'
-                  value={questionId}
-                  onChange={e => setQuestionId(e.target.value)}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      fontSize: '14px'
-                    }
-                  }}
-                />
-              </FormGroup>
-              <FormGroup>
-                <FormLabel>Nội dung câu hỏi (Question Content):</FormLabel>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={3}
-                  size='small'
-                  placeholder='Ví dụ: Tiến trình trong hệ điều hành là gì?'
-                  value={questionContent}
-                  onChange={e => setQuestionContent(e.target.value)}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      fontSize: '14px'
-                    }
-                  }}
-                />
-              </FormGroup>
-              <FormActions>
-                <Button
-                  variant='contained'
-                  fullWidth
-                  onClick={handleSubmitQuestionBank}
-                  disabled={(!questionId.trim() && !questionContent.trim()) || !connected || isLoading}
-                  sx={{ textTransform: 'none', fontWeight: 600 }}
-                >
-                  Gửi câu hỏi
-                </Button>
-                <Button
-                  variant='outlined'
-                  onClick={handleClearQuestionBankForm}
-                  sx={{ textTransform: 'none', fontWeight: 600 }}
-                >
-                  Xóa
-                </Button>
-              </FormActions>
-            </QuestionBankContent>
-          </QuestionBankPanel>
         </Box>
 
         {/* Messages Section - Scrollable (overflow hidden) */}
@@ -666,23 +519,7 @@ const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionI
                       variant='body2'
                       sx={{ color: 'text.secondary', lineHeight: 1.5, fontSize: '14px', mb: 1 }}
                     >
-                      Xin chào! Tôi là chatbot hỗ trợ học tập với 3 chế độ:
-                    </Typography>
-                    <Typography
-                      variant='body2'
-                      sx={{ color: 'text.secondary', lineHeight: 1.5, fontSize: '14px', mb: 1 }}
-                    >
-                      <strong>Question Bank:</strong> Hỏi về câu hỏi trong ngân hàng đề
-                      <br />
-                      <strong>Knowledge Base:</strong> Hỏi về kiến thức trong tài liệu
-                      <br />
-                      <strong>General Chat:</strong> Trò chuyện tự do
-                    </Typography>
-                    <Typography
-                      variant='body2'
-                      sx={{ color: 'text.secondary', lineHeight: 1.5, fontSize: '13px', opacity: 0.8 }}
-                    >
-                      Hãy chọn một chế độ hoặc gõ câu hỏi trực tiếp!
+                      Xin chào! Tôi là chatbot hỗ trợ học tập
                     </Typography>
                   </Box>
                 </Box>
@@ -768,10 +605,11 @@ const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionI
 
           {/* Input Area*/}
           <InputContainer>
-            {/* Test Scenarios Panel */}
-            <Box sx={{ px: 2, py: 1.5 }}>
-              <TestScenariosPanel currentScenario={currentScenario} onScenarioChange={handleScenarioChange} />
-            </Box>
+            {questionId.trim() && (
+              <Box sx={{ px: 1.5, pt: 1.5, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <QuestionIdTag questionId={questionId} onRemove={handleRemoveQuestionId} />
+              </Box>
+            )}
             <InputWrapperContainer>
               <InputWrapper>
                 <TextField
