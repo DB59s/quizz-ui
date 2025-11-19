@@ -1,7 +1,8 @@
 /* Conversation List Styles */
 
 .conversation-list {
-  /* Styles moved to inline sx prop */
+  overflow-x: hidden !important;
+  overflow-y: auto;
 }
 
 .conversation-list-loading {
@@ -33,10 +34,13 @@
   transition: all 0.2s ease;
   border-radius: 8px;
   margin: 2px 4px;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .conversation-item:hover {
-  background-color: var(--mui-palette-primary-main) 15;
+  background-color: rgba(var(--mui-palette-primary-mainChannel) / 0.08);
 }
 
 .conversation-item:hover .conversation-actions {
@@ -44,11 +48,11 @@
 }
 
 .conversation-item.selected {
-  background-color: var(--mui-palette-primary-main) 25;
+  background-color: rgba(var(--mui-palette-primary-mainChannel) / 0.12);
 }
 
 .conversation-item.selected:hover {
-  background-color: var(--mui-palette-primary-main) 35;
+  background-color: rgba(var(--mui-palette-primary-mainChannel) / 0.16);
 }
 
 .conversation-item.selected .conversation-actions {
@@ -60,7 +64,9 @@
   flex-direction: column;
   flex: 1;
   min-width: 0;
+  max-width: 100%;
   gap: 4px;
+  overflow: hidden;
 }
 
 .conversation-title {
@@ -70,6 +76,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   line-height: 1.4;
+  max-width: 100%;
+  width: 100%;
 }
 
 .conversation-date {
@@ -97,7 +105,7 @@
 }
 
 .conversation-actions .edit-button:hover {
-  background-color: var(--mui-palette-primary-main) 15;
+  background-color: rgba(var(--mui-palette-primary-mainChannel) / 0.08);
   color: var(--mui-palette-primary-dark);
   transform: scale(1.1);
 }
@@ -112,7 +120,7 @@
 }
 
 .conversation-actions .delete-button:hover {
-  background-color: var(--mui-palette-error-main) 15;
+  background-color: rgba(var(--mui-palette-error-mainChannel) / 0.08);
   color: var(--mui-palette-error-dark);
   transform: scale(1.1);
 }

@@ -100,12 +100,13 @@ export const MessageBubble = styled(Box, {
   shouldForwardProp: prop => prop !== 'isUser'
 })<{ isUser?: boolean }>(({ theme, isUser }) => ({
   padding: theme.spacing(1, 1.5),
-  maxWidth: isUser ? 'calc(100% - 8px)' : 'calc(100% - 40px)',
+  // maxWidth: isUser ? 'calc(100% - 8px)' : 'calc(100% - 40px)',
   backgroundColor: isUser ? theme.palette.primary.main : theme.palette.action.hover,
   color: isUser ? '#ffffff' : theme.palette.text.primary,
   borderRadius: isUser ? '18px 4px 18px 18px' : '4px 18px 18px 18px',
-  wordBreak: 'break-word',
-  whiteSpace: 'pre-wrap',
+  wordBreak: 'normal',
+  overflowWrap: 'break-word',
+  whiteSpace: 'pre-line',
   fontSize: '14px',
   lineHeight: '20px',
   marginLeft: isUser ? '35px' : '0',

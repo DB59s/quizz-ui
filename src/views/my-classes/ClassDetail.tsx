@@ -45,7 +45,7 @@ const TabPanel = (props: TabPanelProps) => {
 
   return (
     <div
-      role="tabpanel"
+      role='tabpanel'
       hidden={value !== index}
       id={`class-tabpanel-${index}`}
       aria-labelledby={`class-tab-${index}`}
@@ -109,7 +109,7 @@ const ClassDetail = ({ classId }: { classId: string }) => {
       if (foundClass) {
         // Check cache for class info
         const cacheKey = CACHE_KEYS.CLASS_BY_CODE(foundClass.class.class_code)
-        let classRes = cacheManager.get(cacheKey)
+        let classRes = cacheManager.get<any>(cacheKey)
 
         if (!classRes) {
           // If not in cache, fetch from API
@@ -123,7 +123,7 @@ const ClassDetail = ({ classId }: { classId: string }) => {
           id: foundClass.class._id,
           name: foundClass.class.name,
           code: foundClass.class.class_code,
-          teacher: classRes?.data?.teacher?.full_name || 'Chưa có thông tin',
+          teacher: classRes?.teacher?.full_name || 'Chưa có thông tin',
           description: foundClass.class.description || 'Không có mô tả',
           maxStudents: foundClass.class.max_students,
           currentStudents: foundClass.class.current_students
@@ -151,7 +151,7 @@ const ClassDetail = ({ classId }: { classId: string }) => {
 
   if (loading) {
     return (
-      <Box className="flex justify-center items-center p-8">
+      <Box className='flex justify-center items-center p-8'>
         <CircularProgress />
       </Box>
     )
@@ -160,7 +160,7 @@ const ClassDetail = ({ classId }: { classId: string }) => {
   if (error || !classInfo) {
     return (
       <Box>
-        <Alert severity="error">{error || 'Không tìm thấy thông tin lớp học'}</Alert>
+        <Alert severity='error'>{error || 'Không tìm thấy thông tin lớp học'}</Alert>
       </Box>
     )
   }
@@ -168,23 +168,23 @@ const ClassDetail = ({ classId }: { classId: string }) => {
   return (
     <Box>
       {/* Header */}
-      <Box className="flex items-center gap-4 mb-6">
+      <Box className='flex items-center gap-4 mb-6'>
         <IconButton
           onClick={handleBack}
           sx={{
             bgcolor: 'var(--mui-palette-primary-dark)',
             borderRadius: 1,
             color: 'white',
-            '&:hover': { bgcolor: 'var(--mui-palette-primary-dark)' },
+            '&:hover': { bgcolor: 'var(--mui-palette-primary-dark)' }
           }}
         >
-          <i className="tabler-arrow-left" />
+          <i className='tabler-arrow-left' />
         </IconButton>
         <div>
-          <Typography variant="h5" className="font-semibold" sx={{ color: 'var(--mui-palette-primary-dark)' }}>
+          <Typography variant='h5' className='font-semibold' sx={{ color: 'var(--mui-palette-primary-dark)' }}>
             {classInfo.name}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant='body2' color='text.secondary'>
             Mã lớp: {classInfo.code} | Giáo viên: {classInfo.teacher}
           </Typography>
         </div>
@@ -196,7 +196,7 @@ const ClassDetail = ({ classId }: { classId: string }) => {
           <Tabs
             value={tabValue}
             onChange={handleTabChange}
-            aria-label="class detail tabs"
+            aria-label='class detail tabs'
             sx={{
               px: 3,
               '& .MuiTab-root': {
@@ -206,8 +206,8 @@ const ClassDetail = ({ classId }: { classId: string }) => {
               }
             }}
           >
-            <Tab label="Tổng quan" id="class-tab-0" aria-controls="class-tabpanel-0" />
-            <Tab label="Bài tập" id="class-tab-1" aria-controls="class-tabpanel-1" />
+            <Tab label='Tổng quan' id='class-tab-0' aria-controls='class-tabpanel-0' />
+            <Tab label='Bài tập' id='class-tab-1' aria-controls='class-tabpanel-1' />
           </Tabs>
         </Box>
 
