@@ -23,8 +23,8 @@ import { Send, X, Bot, User, Minimize2, Maximize2, Trash2, ArrowDown } from 'luc
 import { useSession } from 'next-auth/react'
 
 import { useChatbot } from '@/hooks/useChatbot'
-import ChatbotHeaderActions from './ChatbotHeaderActions'
-import QuestionIdTag from './QuestionIdTag'
+import ChatbotHeaderActions from './components/ChatbotHeaderActions'
+import QuestionIdTag from './components/QuestionIdTag'
 import { type Conversation, chatbotService } from '@/services/chatbot.service'
 import { userService } from '@/services/user.service'
 import { debounce } from './utils/chatbot.utils'
@@ -53,14 +53,23 @@ import {
 
 // ============= MAIN COMPONENT =============
 
+type ScenarioType = 'question_bank' | 'explain_answer' | 'generate_question' | null
+
 type ChatbotDialogProps = {
   open: boolean
   onClose: () => void
   initialQuestionContent?: string
   initialQuestionId?: string
+  initialScenario?: ScenarioType
 }
 
-const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionId }: ChatbotDialogProps) => {
+const ChatbotDialog = ({
+  open,
+  onClose,
+  initialQuestionContent,
+  initialQuestionId,
+  initialScenario
+}: ChatbotDialogProps) => {
   const theme = useTheme()
   const { data: session, status } = useSession()
 
@@ -510,23 +519,7 @@ const ChatbotDialog = ({ open, onClose, initialQuestionContent, initialQuestionI
                       variant='body2'
                       sx={{ color: 'text.secondary', lineHeight: 1.5, fontSize: '14px', mb: 1 }}
                     >
-                      Xin chào! Tôi là chatbot hỗ trợ học tập với 3 chế độ:
-                    </Typography>
-                    <Typography
-                      variant='body2'
-                      sx={{ color: 'text.secondary', lineHeight: 1.5, fontSize: '14px', mb: 1 }}
-                    >
-                      <strong>Question Bank:</strong> Hỏi về câu hỏi trong ngân hàng đề
-                      <br />
-                      <strong>Knowledge Base:</strong> Hỏi về kiến thức trong tài liệu
-                      <br />
-                      <strong>General Chat:</strong> Trò chuyện tự do
-                    </Typography>
-                    <Typography
-                      variant='body2'
-                      sx={{ color: 'text.secondary', lineHeight: 1.5, fontSize: '13px', opacity: 0.8 }}
-                    >
-                      Hãy chọn một chế độ hoặc gõ câu hỏi trực tiếp!
+                      Xin chào! Tôi là chatbot hỗ trợ học tập
                     </Typography>
                   </Box>
                 </Box>
