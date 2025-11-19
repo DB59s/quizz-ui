@@ -155,6 +155,24 @@ const ChatbotDialog = ({
     cachedConversationsRef.current = conversations
   }, [])
 
+  // Load conversations when dialog opens
+  useEffect(() => {
+    if (open && !hasLoadedConversationsRef.current) {
+      const loadConversations = async () => {
+        try {
+          const response = await chatbotService.getConversations(20, 0)
+          if (response.success && response.data) {
+            cachedConversationsRef.current = response.data
+            hasLoadedConversationsRef.current = true
+          }
+        } catch (error) {
+          console.error('Error loading conversations:', error)
+        }
+      }
+      loadConversations()
+    }
+  }, [open])
+
   // Auto scroll to bottom when new message arrives
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -481,7 +499,13 @@ const ChatbotDialog = ({
             </Box>
           </HeaderLeft>
           <HeaderRight>
-            <ChatbotHeaderActions onNewConversation={handleNewConversation} currentConversationId={conversationId} />
+            <ChatbotHeaderActions
+              onNewConversation={handleNewConversation}
+              currentConversationId={conversationId}
+              onConversationSelect={handleConversationSelect}
+              cachedConversations={cachedConversationsRef.current}
+              onConversationsChange={handleConversationsChange}
+            />
             <ActionButton size='small' onClick={handleClose} title='Đóng khung chat'>
               <X size={18} />
             </ActionButton>
