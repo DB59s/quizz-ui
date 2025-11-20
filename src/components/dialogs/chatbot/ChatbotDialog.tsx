@@ -137,18 +137,19 @@ const ChatbotDialog = ({
   // Handle initial values when dialog opens
   useEffect(() => {
     if (open) {
-      if (initialQuestionContent) {
-        setQuestionContent(initialQuestionContent)
-      }
-
       if (initialQuestionId) {
+        // Start new conversation when opening with question
+        startNewConversation()
         setQuestionId(initialQuestionId)
 
-        // Auto-populate input with question ID reference
+        // Auto-populate input with question ID reference only (user will type content)
         setInputValue(`@${initialQuestionId} `)
+        if (initialQuestionContent) {
+          setQuestionContent(initialQuestionContent)
+        }
       }
     }
-  }, [open, initialQuestionContent, initialQuestionId])
+  }, [open, initialQuestionContent, initialQuestionId, startNewConversation])
 
   // Callback to update cached conversations
   const handleConversationsChange = useCallback((conversations: Conversation[]) => {
@@ -282,12 +283,10 @@ const ChatbotDialog = ({
 
         const trimmedTitle = title.length > 50 ? title.substring(0, 47) + '...' : title
 
-        console.log('[createNewConversationIfNeeded] Creating conversation with title:', trimmedTitle)
 
         const response = await chatbotService.createConversation(trimmedTitle)
 
         if (response.success && response.data) {
-          console.log('[createNewConversationIfNeeded] Conversation created:', response.data.id)
 
           await selectConversation(response.data.id)
 
@@ -367,21 +366,36 @@ const ChatbotDialog = ({
         conversationIdToUse = newConversationId
       }
 
+      // Parse input to extract @questionID if present and prepare message
+      let messageToSend = currentInput
+      let displayMessage = currentInput
+      let contextQuestionId = questionId.trim()
+
+      // Check if input contains @questionID pattern
+      const questionIdMatch = currentInput.match(/@([a-f0-9-]+)\s*/)
+      if (questionIdMatch) {
+        // Extract questionId from input
+        contextQuestionId = questionIdMatch[1]
+        // Remove @questionID from message to send to server
+        messageToSend = currentInput.replace(/@[a-f0-9-]+\s*/, '').trim()
+        // Keep full message (with @questionID) for display
+        displayMessage = currentInput
+      }
+
       // Prepare context with question ID if available
       const context: any = {}
 
-      if (questionId.trim()) {
-        context.question_id = questionId.trim()
+      if (contextQuestionId) {
+        context.force_type = 'question_bank'
+        context.question_id = contextQuestionId
       }
 
       // Clear input
-      const messageToSend = currentInput
-
       setInputValue('')
 
-      // Send message
-      console.log('[handleSend] Sending message, conversationId:', conversationIdToUse, 'questionId:', questionId)
-      sendMessage(messageToSend, context, conversationIdToUse)
+      // Send message (messageToSend = prompt without @questionID, displayMessage = full message with @questionID)
+
+      sendMessage(messageToSend, context, conversationIdToUse, displayMessage)
 
       // Reset flags
       if (messages.length === 0) {

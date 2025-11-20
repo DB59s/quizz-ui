@@ -307,7 +307,8 @@ export function useChatbot(accountId: string | null | undefined) {
     (
       prompt: string,
       context?: ChatContext | { force_type?: 'question_bank' | 'knowledge_base' | 'general'; question_id?: string },
-      explicitConversationId?: string | null
+      explicitConversationId?: string | null,
+      displayMessage?: string
     ) => {
 
 
@@ -335,10 +336,10 @@ export function useChatbot(accountId: string | null | undefined) {
         return
       }
 
-      // Add user message to UI
+      // Add user message to UI (use displayMessage if provided, otherwise use prompt)
       const userMessage: ChatMessage = {
         role: 'user',
-        content: prompt,
+        content: displayMessage || prompt,
         timestamp: new Date()
       }
       setMessages(prev => [...prev, userMessage])
@@ -373,8 +374,15 @@ export function useChatbot(accountId: string | null | undefined) {
       // Send to server with timeout
       timeoutRef.current = setTimeout(() => {
         setIsLoading(false)
-        setError('Không nhận được phản hồi từ server. Vui lòng thử lại.')
-        setMessages(prev => prev.filter(msg => msg !== userMessage))
+        const errorMsg = 'Không nhận được phản hồi từ server. Vui lòng thử lại.'
+        setError(errorMsg)
+        // Add error message instead of removing user message
+        const errorMessage: ChatMessage = {
+          role: 'assistant',
+          content: errorMsg,
+          timestamp: new Date()
+        }
+        setMessages(prev => [...prev, errorMessage])
         timeoutRef.current = null
       }, 30000) // 30 seconds timeout
 
@@ -409,11 +417,16 @@ export function useChatbot(accountId: string | null | undefined) {
             }
           }
         } else {
-          const errorMessage = response.message || 'Không thể nhận phản hồi từ chatbot'
-          setError(errorMessage)
+          const errorMsg = response.message || 'Không thể nhận phản hồi từ chatbot'
+          setError(errorMsg)
 
-          // Remove user message if failed
-          setMessages(prev => prev.filter(msg => msg !== userMessage))
+          // Add error message instead of removing user message
+          const errorMessage: ChatMessage = {
+            role: 'assistant',
+            content: errorMsg,
+            timestamp: new Date()
+          }
+          setMessages(prev => [...prev, errorMessage])
         }
       })
     },
@@ -438,8 +451,8 @@ export function useChatbot(accountId: string | null | undefined) {
   const explainQuestion = useCallback(
     (questionId: string, customPrompt?: string) => {
       sendMessage(customPrompt || 'Giải thích câu hỏi này cho tôi', {
-        type: 'question',
-        id: questionId
+        force_type: 'question_bank',
+        question_id: questionId
       })
     },
     [sendMessage]

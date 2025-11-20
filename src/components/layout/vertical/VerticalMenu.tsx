@@ -95,6 +95,9 @@ const VerticalMenu = ({ dictionary, scrollMenu }: Props) => {
         <MenuItem href={`/${locale}/applications`} icon={<i className='tabler-file-text' />}>
           Đơn đăng kí
         </MenuItem>
+        <MenuItem href={`/${locale}/submission-history`} icon={<i className='tabler-file-check' />}>
+          Lịch sử nộp bài
+        </MenuItem>
       </Menu>
       {/* <Menu
         popoutMenuOffset={{ mainAxis: 23 }}
