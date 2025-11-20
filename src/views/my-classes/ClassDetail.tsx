@@ -65,7 +65,9 @@ const ClassDetail = ({ classId }: { classId: string }) => {
   const [tabValue, setTabValue] = useState(() => {
     if (typeof window !== 'undefined') {
       const savedTab = sessionStorage.getItem(`classDetail_tab_${classId}`)
-      return savedTab ? parseInt(savedTab, 10) : 0
+      const tabIndex = savedTab ? parseInt(savedTab, 10) : 0
+      // Validate tab index (only 0 and 1 are valid now)
+      return tabIndex > 1 ? 0 : tabIndex
     }
     return 0
   })
@@ -139,7 +141,7 @@ const ClassDetail = ({ classId }: { classId: string }) => {
     }
   }
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue)
   }
 

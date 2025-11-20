@@ -407,6 +407,13 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
     fetchKeyRef.current = '' // Reset to allow fetch for new page
   }, [])
 
+  const handleLimitChange = useCallback((newLimit: number) => {
+    setItemsPerPage(newLimit)
+    setCurrentPage(1) // Reset to first page when changing limit
+    fetchKeyRef.current = '' // Reset to allow fetch
+    assignmentsCache.clearAll(classId) // Clear cache when limit changes
+  }, [classId])
+
   const renderEmptyState = useCallback(() => {
     return (
       <Box className='flex flex-col items-center justify-center py-12 px-4'>
@@ -521,6 +528,7 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
                 total_items: totalItems
               }}
               onChangePage={handlePageChange}
+              onChangeLimit={handleLimitChange}
             />
           </>
         )}

@@ -2,6 +2,8 @@
 
 // MUI Imports
 import Typography from '@mui/material/Typography'
+import Select from '@mui/material/Select'
+import MenuItem from '@mui/material/MenuItem'
 import { ArrowLeft2, ArrowRight2 } from 'iconsax-react'
 import Pagination from 'rc-pagination/lib/Pagination'
 
@@ -19,9 +21,10 @@ interface PaginationProps {
     current_page?: number
   }
   onChangePage: (page: number) => void
+  onChangeLimit?: (limit: number) => void
 }
 
-const ClassAssignmentsPagination = ({ pagination, onChangePage }: PaginationProps) => {
+const ClassAssignmentsPagination = ({ pagination, onChangePage, onChangeLimit }: PaginationProps) => {
   // Support both naming conventions from API
   const page = Number(pagination?.page || pagination?.current_page) || 1
   const limit = Number(pagination?.limit || pagination?.items_per_page) || 10
@@ -29,6 +32,12 @@ const ClassAssignmentsPagination = ({ pagination, onChangePage }: PaginationProp
 
   const startEntry = totalItems === 0 ? 0 : (page - 1) * limit + 1
   const endEntry = Math.min(page * limit, totalItems)
+
+  const handleLimitChange = (event: any) => {
+    if (onChangeLimit) {
+      onChangeLimit(Number(event.target.value))
+    }
+  }
 
   // Custom pagination styles with primary-dark color
   const paginationStyles = `
@@ -139,9 +148,35 @@ const ClassAssignmentsPagination = ({ pagination, onChangePage }: PaginationProp
     <>
       <style>{paginationStyles}</style>
       <div className='flex justify-between items-center flex-wrap pli-6 border-bs bs-auto plb-5 gap-2'>
-        <Typography color='text.disabled' variant='body2'>
-          {`Hiển thị ${startEntry} - ${endEntry} trong tổng số ${totalItems}`}
-        </Typography>
+        <div className='flex items-center gap-4'>
+          <Typography color='text.disabled' variant='body2'>
+            {`Hiển thị ${startEntry} - ${endEntry} trong tổng số ${totalItems}`}
+          </Typography>
+          {onChangeLimit && (
+            <div className='flex items-center gap-2'>
+              <Typography color='text.disabled' variant='body2'>
+                Số bản ghi:
+              </Typography>
+              <Select
+                value={limit}
+                onChange={handleLimitChange}
+                size='small'
+                sx={{
+                  minWidth: 80,
+                  height: 32,
+                  '& .MuiSelect-select': {
+                    py: 0.5
+                  }
+                }}
+              >
+                <MenuItem value={5}>5</MenuItem>
+                <MenuItem value={10}>10</MenuItem>
+                <MenuItem value={20}>20</MenuItem>
+                <MenuItem value={50}>50</MenuItem>
+              </Select>
+            </div>
+          )}
+        </div>
         <Pagination
           current={page}
           total={totalItems}
