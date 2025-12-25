@@ -116,11 +116,19 @@ const MenuItem: ForwardRefRenderFunction<HTMLLIElement, MenuItemProps> = (props,
 
     if (href) {
       // Check if the current url matches any of the children urls
-      if (exactMatch ? pathname === href : activeUrl && pathname.includes(activeUrl)) {
-        setActive(true)
-      } else {
-        setActive(false)
+      let isActive = false
+      
+      if (exactMatch) {
+        isActive = pathname === href
+      } else if (activeUrl) {
+        isActive = pathname.includes(activeUrl)
+        // Also check for quiz routes if this is the my-classes menu item
+        if (href.includes('/my-classes') && pathname.includes('/quiz')) {
+          isActive = true
+        }
       }
+      
+      setActive(isActive)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname])

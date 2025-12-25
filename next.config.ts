@@ -6,23 +6,43 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/',
-        destination: '/en/dashboards/crm',
+        destination: '/en/home',
         permanent: true,
         locale: false
       },
       {
         source: '/:lang(en|fr|ar)',
-        destination: '/:lang/dashboards/crm',
+        destination: '/:lang/home',
         permanent: true,
         locale: false
       },
       {
-        source: '/((?!(?:en|fr|ar|front-pages|favicon.ico)\\b)):path',
+        source: '/((?!(?:en|fr|ar|front-pages|favicon.ico|.*\\.svg)\\b)):path',
         destination: '/en/:path',
         permanent: true,
         locale: false
       }
     ]
+  },
+  headers: async () => {
+    return [
+      {
+        source: '/icon.svg',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable'
+          }
+        ]
+      }
+    ]
+  },
+  experimental: {
+    turbo: {
+      resolveAlias: {
+        'openid-client': './node_modules/openid-client/lib/index.js'
+      }
+    }
   }
 }
 

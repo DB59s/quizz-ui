@@ -12,7 +12,6 @@ import type { ThemeColor } from '@core/types'
 
 // Component Imports
 import EditUserInfo from '@components/dialogs/edit-user-info'
-import ConfirmationDialog from '@components/dialogs/confirmation-dialog'
 import OpenDialogOnElementClick from '@components/dialogs/OpenDialogOnElementClick'
 import CustomAvatar from '@core/components/mui/Avatar'
 
@@ -133,12 +132,9 @@ const UserDetails = () => {
               dialog={EditUserInfo}
               dialogProps={{ data: userData }}
             />
-            <OpenDialogOnElementClick
-              element={Button}
-              elementProps={buttonProps('Suspend', 'error', 'tonal')}
-              dialog={ConfirmationDialog}
-              dialogProps={{ type: 'suspend-account' }}
-            />
+            <Button variant='tonal' color='error'>
+              Suspend
+            </Button>
           </div>
         </CardContent>
       </Card>

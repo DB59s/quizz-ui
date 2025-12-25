@@ -1,0 +1,25 @@
+/* Header Action Button Styles */
+
+.header-action-button {
+  color: var(--mui-palette-text-secondary);
+  padding: 6px;
+  min-width: 40px;
+  min-height: 40px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 10px;
+}
+
+.header-action-button:hover {
+  background-color: var(--mui-palette-primary-main) 15;
+  color: var(--mui-palette-primary-main);
+  transform: translateY(-2px);
+}
+
+.header-action-button:active {
+  transform: scale(0.95) translateY(0);
+}
+
+.header-action-button.Mui-disabled {
+  color: var(--mui-palette-action-disabled);
+  opacity: 0.5;
+}

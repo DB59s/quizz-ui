@@ -8,8 +8,6 @@ import Typography from '@mui/material/Typography'
 import type { ButtonProps } from '@mui/material/Button'
 
 // Component Imports
-import AddNewAddress from '@components/dialogs/add-edit-address'
-import OpenDialogOnElementClick from '@components/dialogs/OpenDialogOnElementClick'
 
 // Vars
 const data = {
@@ -29,25 +27,15 @@ const data = {
 }
 
 const BillingAddress = () => {
-  const buttonProps: ButtonProps = {
-    variant: 'contained',
-    children: 'Edit Address',
-    size: 'small',
-    startIcon: <i className='tabler-plus' />
-  }
-
   return (
     <>
       <Card>
         <CardHeader
           title='Billing Address'
           action={
-            <OpenDialogOnElementClick
-              element={Button}
-              elementProps={buttonProps}
-              dialog={AddNewAddress}
-              dialogProps={{ data }}
-            />
+            <Button variant='contained' size='small' startIcon={<i className='tabler-plus' />}>
+              Edit Address
+            </Button>
           }
         />
         <CardContent>

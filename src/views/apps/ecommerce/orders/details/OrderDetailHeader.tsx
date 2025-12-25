@@ -9,8 +9,6 @@ import type { ThemeColor } from '@core/types'
 import type { OrderType } from '@/types/apps/ecommerceTypes'
 
 // Component Imports
-import ConfirmationDialog from '@components/dialogs/confirmation-dialog'
-import OpenDialogOnElementClick from '@components/dialogs/OpenDialogOnElementClick'
 
 type PayementStatusType = {
   text: string
@@ -36,13 +34,6 @@ export const statusChipColor: { [key: string]: StatusChipColorType } = {
 }
 
 const OrderDetailHeader = ({ orderData, order }: { orderData?: OrderType; order: string }) => {
-  // Vars
-  const buttonProps = (children: string, color: ThemeColor, variant: ButtonProps['variant']): ButtonProps => ({
-    children,
-    color,
-    variant
-  })
-
   return (
     <div className='flex flex-wrap justify-between sm:items-center max-sm:flex-col gap-y-4'>
       <div className='flex flex-col items-start gap-1'>
@@ -63,12 +54,9 @@ const OrderDetailHeader = ({ orderData, order }: { orderData?: OrderType; order:
         </div>
         <Typography>{`${new Date(orderData?.date ?? '').toDateString()}, ${orderData?.time} (ET)`}</Typography>
       </div>
-      <OpenDialogOnElementClick
-        element={Button}
-        elementProps={buttonProps('Delete Order', 'error', 'tonal')}
-        dialog={ConfirmationDialog}
-        dialogProps={{ type: 'delete-order' }}
-      />
+      <Button variant='tonal' color='error'>
+        Delete Order
+      </Button>
     </div>
   )
 }

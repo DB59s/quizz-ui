@@ -8,16 +8,8 @@ import Button from '@mui/material/Button'
 import type { ButtonProps } from '@mui/material/Button'
 
 // Component Imports
-import UpgradePlan from '@components/dialogs/upgrade-plan'
-import OpenDialogOnElementClick from '@components/dialogs/OpenDialogOnElementClick'
 
 const UserPlan = () => {
-  // Vars
-  const buttonProps: ButtonProps = {
-    variant: 'contained',
-    children: 'Upgrade Plan'
-  }
-
   return (
     <>
       <Card className='border-2 border-primary rounded shadow-primarySm'>
@@ -62,7 +54,7 @@ const UserPlan = () => {
             <LinearProgress variant='determinate' value={65} />
             <Typography variant='body2'>4 days remaining</Typography>
           </div>
-          <OpenDialogOnElementClick element={Button} elementProps={buttonProps} dialog={UpgradePlan} />
+          <Button variant='contained'>Upgrade Plan</Button>
         </CardContent>
       </Card>
     </>

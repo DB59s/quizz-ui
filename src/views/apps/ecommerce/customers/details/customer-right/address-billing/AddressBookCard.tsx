@@ -11,14 +11,9 @@ import Divider from '@mui/material/Divider'
 import Typography from '@mui/material/Typography'
 import { useTheme } from '@mui/material/styles'
 import IconButton from '@mui/material/IconButton'
-import Button from '@mui/material/Button'
-import type { ButtonProps } from '@mui/material/Button'
-import type { IconButtonProps } from '@mui/material/IconButton'
 
 // Component Imports
 import OptionMenu from '@core/components/option-menu'
-import AddNewAddress from '@components/dialogs/add-edit-address'
-import OpenDialogOnElementClick from '@components/dialogs/OpenDialogOnElementClick'
 
 type propsType = {
   typeOfAddress: string
@@ -57,21 +52,21 @@ const propData: propsType[] = [
 ]
 
 // Vars
-const data = {
-  firstName: 'Violet',
-  lastName: 'Mendoza',
-  email: 'sbaser0@boston.com',
-  country: 'UK',
-  address1: '23 Shatinon Mekalan',
-  address2: 'Melbourne, VIC 3000',
-  landmark: 'Near Water Plant',
-  city: 'London',
-  state: 'Capholim',
-  zipCode: '403114',
-  taxId: 'TAX-875623',
-  vatNumber: 'SDF754K77',
-  contact: '+1 (234) 464-0600'
-}
+// const data = {
+//   firstName: 'Violet',
+//   lastName: 'Mendoza',
+//   email: 'sbaser0@boston.com',
+//   country: 'UK',
+//   address1: '23 Shatinon Mekalan',
+//   address2: 'Melbourne, VIC 3000',
+//   landmark: 'Near Water Plant',
+//   city: 'London',
+//   state: 'Capholim',
+//   zipCode: '403114',
+//   taxId: 'TAX-875623',
+//   vatNumber: 'SDF754K77',
+//   contact: '+1 (234) 464-0600'
+// }
 
 const CustomerAddress = (props: propsType) => {
   // Props
@@ -80,11 +75,6 @@ const CustomerAddress = (props: propsType) => {
   // States
   const [expanded, setExpanded] = useState(isDefaultAddress ? true : false)
 
-  // Vars
-  const iconButtonProps: IconButtonProps = {
-    children: <i className='tabler-edit' />,
-    className: 'text-textSecondary'
-  }
 
   // Hooks
   const theme = useTheme()
@@ -116,12 +106,9 @@ const CustomerAddress = (props: propsType) => {
           </div>
         </div>
         <div className='mis-10'>
-          <OpenDialogOnElementClick
-            element={IconButton}
-            elementProps={iconButtonProps}
-            dialog={AddNewAddress}
-            dialogProps={{ data }}
-          />
+          <IconButton>
+            <i className='tabler-edit text-textSecondary' />
+          </IconButton>
           <IconButton>
             <i className='tabler-trash text-textSecondary' />
           </IconButton>
@@ -149,18 +136,10 @@ const CustomerAddress = (props: propsType) => {
 }
 
 const AddressBook = () => {
-  // Vars
-  const buttonProps: ButtonProps = {
-    variant: 'tonal',
-    children: 'Add New Address',
-    size: 'small'
-  }
-
   return (
     <Card>
       <CardHeader
         title='Address Book'
-        action={<OpenDialogOnElementClick element={Button} elementProps={buttonProps} dialog={AddNewAddress} />}
       />
       <CardContent>
         {propData.map((address, index) => (

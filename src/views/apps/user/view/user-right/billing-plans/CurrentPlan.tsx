@@ -18,17 +18,8 @@ import type { ThemeColor } from '@core/types'
 import type { PricingPlanType } from '@/types/pages/pricingTypes'
 
 // Component Imports
-import ConfirmationDialog from '@components/dialogs/confirmation-dialog'
-import UpgradePlan from '@components/dialogs/upgrade-plan'
-import OpenDialogOnElementClick from '@components/dialogs/OpenDialogOnElementClick'
 
 const CurrentPlan = ({ data }: { data?: PricingPlanType[] }) => {
-  const buttonProps = (children: string, variant: ButtonProps['variant'], color: ThemeColor): ButtonProps => ({
-    children,
-    variant,
-    color
-  })
-
   return (
     <Card>
       <CardHeader title='Current Plan' />
@@ -72,18 +63,12 @@ const CurrentPlan = ({ data }: { data?: PricingPlanType[] }) => {
             <Typography variant='body2'>Your plan requires update</Typography>
           </Grid>
           <Grid size={{ xs: 12 }} className='flex gap-4 flex-wrap'>
-            <OpenDialogOnElementClick
-              element={Button}
-              elementProps={buttonProps('Upgrade plan', 'contained', 'primary')}
-              dialog={UpgradePlan}
-              dialogProps={{ data: data }}
-            />
-            <OpenDialogOnElementClick
-              element={Button}
-              elementProps={buttonProps('Cancel Subscription', 'tonal', 'error')}
-              dialog={ConfirmationDialog}
-              dialogProps={{ type: 'unsubscribe' }}
-            />
+            <Button variant='contained' color='primary'>
+              Upgrade plan
+            </Button>
+            <Button variant='tonal' color='error'>
+              Cancel Subscription
+            </Button>
           </Grid>
         </Grid>
       </CardContent>

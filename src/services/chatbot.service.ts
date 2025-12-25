@@ -1,0 +1,131 @@
+import { apiClient } from '@/libs/axios-client'
+
+// Types
+export interface Conversation {
+  id: string
+  account_id: string
+  title: string
+  created_at: string
+}
+
+export interface CreateConversationRequest {
+  title: string
+}
+
+export interface CreateConversationResponse {
+  success: boolean
+  message: string
+  data: Conversation
+}
+
+export interface GetConversationsResponse {
+  success: boolean
+  message: string
+  data: Conversation[]
+}
+
+export interface GetConversationResponse {
+  success: boolean
+  message: string
+  data: Conversation
+}
+
+export interface ChatMessage {
+  id?: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: string
+  conversation_id?: string
+}
+
+export interface GetMessagesResponse {
+  success: boolean
+  message: string
+  data: ChatMessage[]
+}
+
+export interface DeleteConversationResponse {
+  success: boolean
+  message: string
+}
+
+export interface UpdateConversationRequest {
+  title: string
+}
+
+export interface UpdateConversationResponse {
+  success: boolean
+  message: string
+  data: Conversation
+}
+
+const CHATBOT_API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
+
+export const chatbotService = {
+  /**
+   * Get all conversations for current user
+   */
+  getConversations: async (limit?: number, offset?: number) => {
+    const params = new URLSearchParams()
+    if (limit) params.append('limit', limit.toString())
+    if (offset !== undefined) params.append('offset', offset.toString())
+    const queryString = params.toString()
+    const url = `${CHATBOT_API_BASE}/api/v1/chatbot/conversations${queryString ? `?${queryString}` : ''}`
+    const response = await apiClient.get<GetConversationsResponse>(url)
+    return response.data
+  },
+
+  /**
+   * Create a new conversation
+   */
+  createConversation: async (title: string) => {
+    const response = await apiClient.post<CreateConversationResponse>(
+      `${CHATBOT_API_BASE}/api/v1/chatbot/conversations`,
+      {
+        title
+      }
+    )
+    return response.data
+  },
+
+  /**
+   * Get conversation by ID
+   */
+  getConversation: async (id: string) => {
+    const response = await apiClient.get<GetConversationResponse>(`${CHATBOT_API_BASE}/api/v1/chatbot/${id}`)
+    return response.data
+  },
+
+  /**
+   * Get all messages in a conversation
+   */
+  getMessages: async (conversationId: string) => {
+    const response = await apiClient.get<GetMessagesResponse>(
+      `${CHATBOT_API_BASE}/api/v1/chatbot/conversations/${conversationId}/messages`
+    )
+    return response.data
+  },
+
+  /**
+   * Delete a conversation
+   */
+  deleteConversation: async (conversationId: string) => {
+    const response = await apiClient.delete<DeleteConversationResponse>(
+      `${CHATBOT_API_BASE}/api/v1/chatbot/conversations/${conversationId}`
+    )
+    return response.data
+  },
+
+  /**
+   * Update a conversation title
+   */
+  updateConversation: async (conversationId: string, title: string) => {
+    const response = await apiClient.put<UpdateConversationResponse>(
+      `${CHATBOT_API_BASE}/api/v1/chatbot/conversations/${conversationId}`,
+      {
+        title
+      }
+    )
+    return response.data
+  }
+}

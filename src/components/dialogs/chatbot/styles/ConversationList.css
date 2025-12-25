@@ -1,0 +1,167 @@
+/* Conversation List Styles */
+
+.conversation-list {
+  overflow-x: hidden !important;
+  overflow-y: auto;
+}
+
+.conversation-list-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  gap: 8px;
+}
+
+.conversation-list-loading .loading-text {
+  font-size: 13px;
+  color: var(--mui-palette-text-secondary);
+}
+
+.conversation-list-empty {
+  padding: 16px;
+  text-align: center;
+}
+
+.conversation-list-empty Typography {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mui-palette-text-secondary);
+}
+
+.conversation-item {
+  font-size: 13px;
+  transition: all 0.2s ease;
+  border-radius: 8px;
+  margin: 2px 4px;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.conversation-item:hover {
+  background-color: rgba(var(--mui-palette-primary-mainChannel) / 0.08);
+}
+
+.conversation-item:hover .conversation-actions {
+  opacity: 1;
+}
+
+.conversation-item.selected {
+  background-color: rgba(var(--mui-palette-primary-mainChannel) / 0.12);
+}
+
+.conversation-item.selected:hover {
+  background-color: rgba(var(--mui-palette-primary-mainChannel) / 0.16);
+}
+
+.conversation-item.selected .conversation-actions {
+  opacity: 1;
+}
+
+.conversation-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  max-width: 100%;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.conversation-title {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.4;
+  max-width: 100%;
+  width: 100%;
+}
+
+.conversation-date {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--mui-palette-text-secondary);
+  line-height: 1.2;
+}
+
+.conversation-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.conversation-actions .edit-button {
+  padding: 4px;
+  width: 28px;
+  height: 28px;
+  color: var(--mui-palette-primary-main);
+  transition: all 0.2s ease;
+  border-radius: 6px;
+}
+
+.conversation-actions .edit-button:hover {
+  background-color: rgba(var(--mui-palette-primary-mainChannel) / 0.08);
+  color: var(--mui-palette-primary-dark);
+  transform: scale(1.1);
+}
+
+.conversation-actions .delete-button {
+  padding: 4px;
+  width: 28px;
+  height: 28px;
+  color: var(--mui-palette-error-main);
+  transition: all 0.2s ease;
+  border-radius: 6px;
+}
+
+.conversation-actions .delete-button:hover {
+  background-color: rgba(var(--mui-palette-error-mainChannel) / 0.08);
+  color: var(--mui-palette-error-dark);
+  transform: scale(1.1);
+}
+
+.loading-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 8px;
+}
+
+.loading-more Typography {
+  font-size: 12px;
+  color: var(--mui-palette-text-secondary);
+  margin-left: 8px;
+}
+
+.all-loaded {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 4px;
+}
+
+.all-loaded Typography {
+  font-size: 11px;
+  color: var(--mui-palette-text-secondary);
+  font-style: italic;
+}
+
+/* Dialog Styles - No backdrop needed, using hideBackdrop prop */
+
+.delete-conversation-title {
+  padding: 12px;
+  background-color: var(--mui-palette-error-lighter);
+  border-left: 3px solid var(--mui-palette-error-main);
+  border-radius: 4px;
+  color: var(--mui-palette-error-main);
+  font-weight: 500;
+  font-size: 13px;
+  word-break: break-word;
+}

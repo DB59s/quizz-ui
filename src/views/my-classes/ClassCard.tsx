@@ -1,0 +1,201 @@
+'use client'
+
+// React Imports
+import { useState, useEffect } from 'react'
+import { useRouter, useParams, usePathname } from 'next/navigation'
+
+// Lucide Icons
+import { BookOpen } from 'lucide-react'
+
+// MUI Imports
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
+import Typography from '@mui/material/Typography'
+import Button from '@mui/material/Button'
+import Chip from '@mui/material/Chip'
+import Grid from '@mui/material/Grid2'
+import CircularProgress from '@mui/material/CircularProgress'
+import Box from '@mui/material/Box'
+import Alert from '@mui/material/Alert'
+
+// Service Imports
+import { classService } from '@/services/class.service'
+
+// Cache Imports
+import { cacheManager, CACHE_KEYS, CACHE_DURATION } from '@/utils/cacheManager'
+
+// Type Imports
+type ClassInfo = {
+  registration_id: string
+  status: 'pending' | 'approved' | 'rejected'
+  class: {
+    _id: string
+    name: string
+    description: string
+    max_students: number
+    current_students: number
+    class_code: string
+  }
+  teacherName?: string
+}
+
+const ClassCard = () => {
+  const router = useRouter()
+  const params = useParams()
+  const pathname = usePathname()
+  const lang = (params?.lang as string) || 'en'
+  const [classes, setClasses] = useState<ClassInfo[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchApprovedClasses()
+  }, [])
+
+  // Clear lastViewedClassId when on the list page to prevent auto-redirect on back button
+  useEffect(() => {
+    const isListPage = pathname === `/${lang}/my-classes`
+    if (isListPage) {
+      sessionStorage.removeItem('lastViewedClassId')
+    }
+  }, [pathname, lang])
+
+  const fetchApprovedClasses = async () => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      // Try to get from cache first
+      const cachedClasses = cacheManager.get<ClassInfo[]>(CACHE_KEYS.STUDENT_APPLICATIONS)
+      if (cachedClasses) {
+        setClasses(cachedClasses)
+        setLoading(false)
+        return
+      }
+
+      const response = await classService.getStudentApplications()
+
+      if (response.success && response.data?.classes) {
+        // Filter only approved classes
+        const approvedClasses = response.data.classes.filter((app: ClassInfo) => app.status === 'approved')
+
+        // Fetch teacher names for each class
+        const classesWithTeachers = await Promise.all(
+          approvedClasses.map(async (app: ClassInfo) => {
+            try {
+              // Check cache for class info first
+              const cacheKey = CACHE_KEYS.CLASS_BY_CODE(app.class.class_code)
+              let classInfo = cacheManager.get(cacheKey)
+
+              if (!classInfo) {
+                // If not in cache, fetch from API
+                const apiResponse = await classService.getClassByCode(app.class.class_code)
+                classInfo = apiResponse.data
+                // Cache the result
+                cacheManager.set(cacheKey, classInfo, CACHE_DURATION.LONG)
+              }
+
+              return {
+                ...app,
+                teacherName: classInfo?.teacher?.full_name || 'Chưa có thông tin'
+              }
+            } catch (error) {
+              return {
+                ...app,
+                teacherName: 'Chưa có thông tin'
+              }
+            }
+          })
+        )
+
+        // Cache the final result
+        cacheManager.set(CACHE_KEYS.STUDENT_APPLICATIONS, classesWithTeachers, CACHE_DURATION.MEDIUM)
+        setClasses(classesWithTeachers)
+      } else {
+        setError(response.message || 'Không thể tải danh sách lớp học')
+      }
+    } catch (err: any) {
+      console.error('Error fetching classes:', err)
+      setError(err?.response?.data?.message || 'Đã xảy ra lỗi khi tải dữ liệu')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleViewClass = (classId: string) => {
+    // Navigate to class detail page with language prefix
+    router.push(`/${lang}/my-classes/${classId}`)
+  }
+
+  if (loading) {
+    return (
+      <Box className='flex justify-center items-center p-8'>
+        <CircularProgress />
+      </Box>
+    )
+  }
+
+  if (error) {
+    return <Alert severity='error'>{error}</Alert>
+  }
+
+  if (classes.length === 0) {
+    return (
+      <Box className='flex flex-col items-center justify-center py-12 px-4'>
+        <BookOpen size={48} style={{ color: '#9CA3AF', marginBottom: 12 }} />
+        <Typography variant='h6' sx={{ fontWeight: 600, color: '#1F2937', mb: 1 }}>
+          Chưa có lớp học nào
+        </Typography>
+        <Typography variant='body2' sx={{ color: '#6B7280', textAlign: 'center', maxWidth: 400 }}>
+          Bạn chưa có lớp học nào được duyệt. Vui lòng đăng ký một lớp học để bắt đầu.
+        </Typography>
+      </Box>
+    )
+  }
+
+  return (
+    <Grid container spacing={6}>
+      {classes.map((classInfo: ClassInfo) => (
+        <Grid size={{ xs: 12, md: 6, lg: 4 }} key={classInfo.registration_id}>
+          <Card className='h-full'>
+            <CardContent className='flex flex-col gap-4'>
+              <div className='flex justify-between items-start'>
+                <Typography variant='h5' className='font-semibold'>
+                  {classInfo.class.name}
+                </Typography>
+                <Chip label='Đang học' color='success' size='small' variant='tonal' />
+              </div>
+
+              <div className='flex flex-col gap-2'>
+                <Typography variant='body1' color='text.secondary'>
+                  Giáo viên: {classInfo.teacherName || 'Đang tải...'}
+                </Typography>
+                <Typography variant='body2' color='text.secondary'>
+                  Mã lớp: {classInfo.class.class_code}
+                </Typography>
+                <Typography variant='body2' color='text.secondary'>
+                  Số lượng: {classInfo.class.current_students}/{classInfo.class.max_students} học sinh
+                </Typography>
+              </div>
+
+              <Button
+                variant='contained'
+                color='primary'
+                onClick={() => handleViewClass(classInfo.class._id)}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 500,
+                  mt: 2
+                }}
+              >
+                Xem chi tiết
+              </Button>
+            </CardContent>
+          </Card>
+        </Grid>
+      ))}
+    </Grid>
+  )
+}
+
+export default ClassCard

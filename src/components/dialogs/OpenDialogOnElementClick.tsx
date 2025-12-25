@@ -1,38 +1,43 @@
 'use client'
 
 // React Imports
-import { useState } from 'react'
-import type { ComponentType } from 'react'
+import { cloneElement, useState } from 'react'
+import type { ReactElement, SyntheticEvent } from 'react'
 
 type OpenDialogOnElementClickProps = {
-  element: ComponentType<any>
-  dialog: ComponentType<any>
-  elementProps?: any
-  dialogProps?: any
+  element: ReactElement
+  dialog: ReactElement
 }
 
 const OpenDialogOnElementClick = (props: OpenDialogOnElementClickProps) => {
   // Props
-  const { element: Element, dialog: Dialog, elementProps, dialogProps } = props
+  const { element, dialog } = props
 
   // States
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState<boolean>(false)
 
-  // Extract onClick from elementProps
-  const { onClick: elementOnClick, ...restElementProps } = elementProps
+  const handleClickOpen = () => setOpen(true)
+  const handleClose = () => setOpen(false)
 
-  // Handle onClick event
-  const handleOnClick = (e: MouseEvent) => {
-    elementOnClick && elementOnClick(e)
-    setOpen(true)
-  }
+  // Clone the element and add onClick handler
+  const clonedElement = cloneElement(element, {
+    onClick: (e: SyntheticEvent) => {
+      handleClickOpen()
+      element.props.onClick && element.props.onClick(e)
+    }
+  })
+
+  // Clone the dialog and add open/onClose props
+  const clonedDialog = cloneElement(dialog, {
+    ...dialog.props,
+    open,
+    onClose: handleClose
+  })
 
   return (
     <>
-      {/* Receive element component as prop and we will pass onclick event which changes state to open */}
-      <Element onClick={handleOnClick} {...restElementProps} />
-      {/* Receive dialog component as prop and we will pass open and setOpen props to that component */}
-      <Dialog open={open} setOpen={setOpen} {...dialogProps} closeAfterTransition={false} />
+      {clonedElement}
+      {clonedDialog}
     </>
   )
 }

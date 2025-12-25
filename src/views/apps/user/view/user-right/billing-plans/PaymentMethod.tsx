@@ -16,8 +16,6 @@ import type { ButtonProps } from '@mui/material/Button'
 import type { ThemeColor } from '@core/types'
 
 // Component Imports
-import BillingCard from '@components/dialogs/billing-card'
-import OpenDialogOnElementClick from '@components/dialogs/OpenDialogOnElementClick'
 
 type DataType = {
   name: string
@@ -74,29 +72,16 @@ const PaymentMethod = () => {
     setCreditCard(index)
   }
 
-  // Vars
-  const addButtonProps: ButtonProps = {
-    variant: 'contained',
-    children: 'Add Card',
-    size: 'small',
-    color: 'primary',
-    startIcon: <i className='tabler-plus' />,
-    onClick: handleAddCard
-  }
-
-  const editButtonProps = (index: number): ButtonProps => ({
-    variant: 'tonal',
-    children: 'Edit',
-    size: 'small',
-    onClick: () => handleClickOpen(index)
-  })
-
   return (
     <>
       <Card>
         <CardHeader
           title='Payment Methods'
-          action={<OpenDialogOnElementClick element={Button} elementProps={addButtonProps} dialog={BillingCard} />}
+          action={
+            <Button variant='contained' size='small' color='primary' startIcon={<i className='tabler-plus' />}>
+              Add Card
+            </Button>
+          }
         />
         <CardContent className='flex flex-col gap-4'>
           {data.map((item, index) => (
@@ -120,12 +105,9 @@ const PaymentMethod = () => {
               </div>
               <div className='flex flex-col gap-4'>
                 <div className='flex items-center justify-end gap-4'>
-                  <OpenDialogOnElementClick
-                    element={Button}
-                    elementProps={editButtonProps(index)}
-                    dialog={BillingCard}
-                    dialogProps={{ data: data[creditCard] }}
-                  />
+                  <Button variant='tonal' size='small'>
+                    Edit
+                  </Button>
                   <Button variant='tonal' color='error' size='small'>
                     Delete
                   </Button>
