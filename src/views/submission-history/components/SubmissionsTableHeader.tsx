@@ -16,7 +16,6 @@ const SubmissionsTableHeader = memo(({ showClassColumn }: TableHeaderProps) => {
     <TableHead>
       <TableRow sx={{ bgcolor: 'var(--mui-palette-primary-dark)' }}>
         <TableCell sx={{ color: 'white', fontWeight: 600 }}>Tên bài kiểm tra</TableCell>
-        {showClassColumn && <TableCell sx={{ color: 'white', fontWeight: 600 }}>Lớp học</TableCell>}
         <TableCell align='center' sx={{ color: 'white', fontWeight: 600 }}>
           Điểm
         </TableCell>

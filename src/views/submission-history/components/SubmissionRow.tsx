@@ -48,13 +48,6 @@ const SubmissionRow = memo(({
           {submission.quiz_name}
         </Typography>
       </TableCell>
-      {showClassColumn && (
-        <TableCell sx={{ py: 2.5 }}>
-          <Typography variant='body2' color='text.secondary'>
-            {submission.class_name}
-          </Typography>
-        </TableCell>
-      )}
       <TableCell align='center' sx={{ py: 2.5 }}>
         <Typography variant='body2' className='font-bold' sx={{ color: getScoreColor(submission.score) }}>
           {submission.score.toFixed(1)}
