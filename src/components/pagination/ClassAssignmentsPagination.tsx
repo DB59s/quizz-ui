@@ -181,7 +181,6 @@ const ClassAssignmentsPagination = ({ pagination, onChangePage, onChangeLimit }:
           current={page}
           total={totalItems}
           pageSize={limit}
-          hideOnSinglePage
           showTitle={false}
           showPrevNextJumpers
           className='hover:cursor-pointer'

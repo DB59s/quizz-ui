@@ -1,8 +1,8 @@
 'use client'
 
 // React Imports
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+import { useRouter, useParams } from 'next/navigation'
 
 // MUI Imports
 import Card from '@mui/material/Card'
@@ -18,8 +18,8 @@ import StatisticsCard from './components/StatisticsCard'
 import EmptyState from './components/EmptyState'
 import SubmissionsTable from './components/SubmissionsTable'
 
-// Service Imports
-import { submissionService, type Submission, type PaginationInfo } from '@/services/submission.service'
+// Hook Imports
+import { useSubmissions } from '@/hooks/queries/useSubmissions'
 
 interface SubmissionHistoryProps {
   classId?: string
@@ -28,61 +28,36 @@ interface SubmissionHistoryProps {
 
 const SubmissionHistory = ({ classId, isTabView = false }: SubmissionHistoryProps) => {
   const router = useRouter()
-  const [submissions, setSubmissions] = useState<Submission[]>([])
-  const [pagination, setPagination] = useState<PaginationInfo | null>(null)
+  const params = useParams()
+  const lang = (params?.lang as string) || 'en'
+
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(10)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
-  // Memoize filtered submissions
-  const displaySubmissions = useMemo(() => {
-    if (classId) {
-      return submissions.filter(s => s.class_id === classId)
-    }
-    return submissions
-  }, [submissions, classId])
+  // Use React Query hook for data fetching
+  const { submissions, pagination, isLoading, error } = useSubmissions({
+    page: currentPage,
+    limit: itemsPerPage,
+    classId
+  })
 
-  // Fetch submissions with useCallback
-  const fetchSubmissions = useCallback(async (page: number, limit: number) => {
-    setLoading(true)
-    setError(null)
-
-    try {
-      const response = await submissionService.getMySubmissions(page, limit)
-
-      if (response.success) {
-        setSubmissions(response.data)
-        setPagination(response.pagination)
-      }
-    } catch (err: any) {
-      console.error('Error fetching submissions:', err)
-      setError(err?.response?.data?.message || 'Đã xảy ra lỗi khi tải dữ liệu')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchSubmissions(currentPage, itemsPerPage)
-  }, [currentPage, itemsPerPage, fetchSubmissions])
-
-  // Handlers with useCallback
-  const handlePageChange = useCallback((page: number) => {
+  // Handlers
+  const handlePageChange = (page: number) => {
     setCurrentPage(page)
-  }, [])
+  }
 
-  const handleLimitChange = useCallback((newLimit: number) => {
+  const handleLimitChange = (newLimit: number) => {
     setItemsPerPage(newLimit)
     setCurrentPage(1) // Reset to first page when changing limit
-  }, [])
+  }
 
-  const handleViewResult = useCallback((submissionId: string) => {
-    router.push(`/quiz/${submissionId}/result`)
-  }, [router])
+  // FIXED: Add language prefix to routing to preserve sidebar
+  const handleViewResult = (submissionId: string) => {
+    router.push(`/${lang}/quiz/${submissionId}/result`)
+  }
 
-  // Format functions with useCallback
-  const formatDate = useCallback((dateString: string) => {
+  // Format functions
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleString('vi-VN', {
       year: 'numeric',
@@ -91,28 +66,26 @@ const SubmissionHistory = ({ classId, isTabView = false }: SubmissionHistoryProp
       hour: '2-digit',
       minute: '2-digit'
     })
-  }, [])
+  }
 
-  const formatTime = useCallback((seconds: number) => {
+  const formatTime = (seconds: number) => {
     if (seconds < 60) return `${seconds}s`
     const minutes = Math.floor(seconds / 60)
     const remainingSeconds = seconds % 60
     return `${minutes}m ${remainingSeconds}s`
-  }, [])
+  }
 
   // Get score color based on value
-  const getScoreColor = useCallback((score: number) => {
+  const getScoreColor = (score: number) => {
     if (score >= 8) return '#10B981'
     if (score >= 5) return '#F59E0B'
     return '#EF4444'
-  }, [])
+  }
 
   // Calculate total items for statistics
-  const totalItems = useMemo(() => {
-    return classId ? displaySubmissions.length : pagination?.total_items || 0
-  }, [classId, displaySubmissions.length, pagination?.total_items])
+  const totalItems = classId ? submissions.length : pagination?.total_items || 0
 
-  if (loading && currentPage === 1) {
+  if (isLoading && currentPage === 1) {
     return (
       <Box className='flex justify-center items-center p-8'>
         <CircularProgress />
@@ -123,7 +96,7 @@ const SubmissionHistory = ({ classId, isTabView = false }: SubmissionHistoryProp
   if (error) {
     return (
       <Box className='p-4'>
-        <Alert severity='error'>{error}</Alert>
+        <Alert severity='error'>{error.message || 'Đã xảy ra lỗi khi tải dữ liệu'}</Alert>
       </Box>
     )
   }
@@ -139,12 +112,12 @@ const SubmissionHistory = ({ classId, isTabView = false }: SubmissionHistoryProp
       {/* Submissions Table */}
       <Card sx={isTabView ? { boxShadow: 'none', border: 'none' } : {}}>
         <CardContent>
-          {displaySubmissions.length === 0 ? (
+          {submissions.length === 0 ? (
             <EmptyState classId={classId} />
           ) : (
             <>
               <SubmissionsTable
-                submissions={displaySubmissions}
+                submissions={submissions}
                 showClassColumn={!classId}
                 formatDate={formatDate}
                 formatTime={formatTime}

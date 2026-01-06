@@ -11,11 +11,7 @@ const getCookieValue = (name: string): string | null => {
   if (typeof document === 'undefined') return null
 
   const match = document.cookie.match(
-    new RegExp(
-      '(?:^|; )' +
-        name.replace(/([.$?*|{}()\[\]\\\/\+^])/g, '\\$1') +
-        '=([^;]*)',
-    ),
+    new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()\[\]\\\/\+^])/g, '\\$1') + '=([^;]*)')
   )
 
   return match ? decodeURIComponent(match[1]) : null
@@ -46,8 +42,7 @@ const requestInterceptor = async (config: InternalAxiosRequestConfig) => {
 
     // Add common headers
     if (config.headers) {
-      config.headers['Content-Type'] =
-        config.headers['Content-Type'] || 'application/json'
+      config.headers['Content-Type'] = config.headers['Content-Type'] || 'application/json'
       config.headers['Accept'] = 'application/json'
 
       // Auto add Content-Language if not explicitly provided
@@ -62,9 +57,7 @@ const requestInterceptor = async (config: InternalAxiosRequestConfig) => {
           contentLanguage =
             getCookieValue('locale') ||
             getCookieValue('NEXT_LOCALE') ||
-            (typeof window !== 'undefined'
-              ? window.location.pathname.split('/')[1] || null
-              : null)
+            (typeof window !== 'undefined' ? window.location.pathname.split('/')[1] || null : null)
         }
 
         if (contentLanguage) {
@@ -73,10 +66,7 @@ const requestInterceptor = async (config: InternalAxiosRequestConfig) => {
       } else {
         // If Content-Language is already set in headers, respect it and don't override
         if (process.env.NODE_ENV === 'development') {
-          console.log(
-            'Content-Language already set in headers:',
-            config.headers['Content-Language'],
-          )
+          console.log('Content-Language already set in headers:', config.headers['Content-Language'])
         }
       }
 
@@ -85,10 +75,8 @@ const requestInterceptor = async (config: InternalAxiosRequestConfig) => {
         console.log('Request headers:', {
           url: config.url,
           'Content-Language': config.headers['Content-Language'],
-          Authorization: config.headers['Authorization']
-            ? 'Bearer ***'
-            : 'None',
-          'Content-Type': config.headers['Content-Type'],
+          Authorization: config.headers['Authorization'] ? 'Bearer ***' : 'None',
+          'Content-Type': config.headers['Content-Type']
         })
       }
     }
@@ -105,13 +93,10 @@ const requestInterceptor = async (config: InternalAxiosRequestConfig) => {
 const responseSuccessInterceptor = (response: any) => {
   // Log successful requests in development
   if (process.env.NODE_ENV === 'development') {
-    console.log(
-      `✅ ${response.config.method?.toUpperCase()} ${response.config.url}`,
-      {
-        status: response.status,
-        data: response.data,
-      },
-    )
+    console.log(`✅ ${response.config.method?.toUpperCase()} ${response.config.url}`, {
+      status: response.status,
+      data: response.data
+    })
   }
 
   return response
@@ -124,10 +109,11 @@ const responseErrorInterceptor = async (error: any) => {
     console.log('Token expired or invalid, handling authentication...')
 
     if (!isServer) {
-      // Client-side: sign out using next-auth
+      // Client-side: sign out with locale-aware redirect
+      const currentLang = window.location.pathname.split('/')[1] || 'en'
       await signOut({
-        callbackUrl: '/login',
-        redirect: true,
+        callbackUrl: `/${currentLang}/login`,
+        redirect: true
       })
     }
 
@@ -142,10 +128,7 @@ const responseErrorInterceptor = async (error: any) => {
   }
 
   // Handle network errors
-  if (
-    !response &&
-    (error.code === 'NETWORK_ERROR' || error.code === 'ERR_NETWORK')
-  ) {
+  if (!response && (error.code === 'NETWORK_ERROR' || error.code === 'ERR_NETWORK')) {
     error.message = 'Network error. Please check your internet connection.'
   }
 
@@ -173,24 +156,19 @@ const responseErrorInterceptor = async (error: any) => {
 // Apply interceptors to axios instance
 export const applyInterceptors = (instance: AxiosInstance) => {
   // Request interceptor
-  instance.interceptors.request.use(requestInterceptor, (error) => {
+  instance.interceptors.request.use(requestInterceptor, error => {
     console.error('Request interceptor error:', error)
 
     return Promise.reject(error)
   })
 
   // Response interceptors
-  instance.interceptors.response.use(
-    responseSuccessInterceptor,
-    responseErrorInterceptor,
-  )
+  instance.interceptors.response.use(responseSuccessInterceptor, responseErrorInterceptor)
 
   // Add request/response logging interceptor for debugging
   if (process.env.NODE_ENV === 'development') {
-    instance.interceptors.request.use((config) => {
-      console.log(
-        `🚀 Starting Request: ${config.method?.toUpperCase()} ${config.url}`,
-      )
+    instance.interceptors.request.use(config => {
+      console.log(`🚀 Starting Request: ${config.method?.toUpperCase()} ${config.url}`)
 
       return config
     })
@@ -204,10 +182,11 @@ export const clearAuthState = async () => {
     localStorage.removeItem('lastVisitedPath')
     sessionStorage.clear()
 
-    // Sign out through next-auth
+    // Sign out with locale-aware redirect
+    const currentLang = window.location.pathname.split('/')[1] || 'en'
     await signOut({
-      callbackUrl: '/login',
-      redirect: true,
+      callbackUrl: `/${currentLang}/login`,
+      redirect: true
     })
   }
 }

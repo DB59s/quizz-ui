@@ -13,6 +13,7 @@ import primaryColorConfig from '@configs/primaryColorConfig'
 
 // Hook Imports
 import { useObjectCookie } from '@core/hooks/useObjectCookie'
+import { useEffect } from 'react'
 
 // Settings type
 export type Settings = {
@@ -86,11 +87,29 @@ export const SettingsProvider = (props: Props) => {
       const newSettings = { ...prev, ...settings }
 
       // Update cookie if needed
-      if (updateCookie) updateSettingsCookie(newSettings)
+      if (updateCookie) {
+        updateSettingsCookie(newSettings)
+
+        // ALSO persist theme to localStorage for survival across auth changes
+        if (settings.mode && typeof window !== 'undefined') {
+          localStorage.setItem('userThemePreference', settings.mode)
+        }
+      }
 
       return newSettings
     })
   }
+
+  // Restore theme from localStorage on mount (survives logout)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('userThemePreference')
+      if (savedTheme && (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system')) {
+        updateSettings({ mode: savedTheme as Mode }, { updateCookie: false })
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   /**
    * Updates the settings for page with the provided settings object.

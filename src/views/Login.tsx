@@ -85,6 +85,17 @@ const schema = object({
   )
 })
 
+// Error message mapping for better UX
+const ERROR_MESSAGES: Record<string, string> = {
+  'Invalid credentials': 'Tài khoản hoặc mật khẩu không đúng',
+  'Insufficient permissions': 'Tài khoản hoặc mật khẩu không đúng',
+  'User not found': 'Tài khoản hoặc mật khẩu không đúng',
+  'Incorrect password': 'Tài khoản hoặc mật khẩu không đúng',
+  'Account not found': 'Tài khoản hoặc mật khẩu không đúng',
+  'Authentication failed': 'Tài khoản hoặc mật khẩu không đúng',
+  default: 'Đã xảy ra lỗi. Vui lòng thử lại'
+}
+
 const Login = ({ mode }: { mode: SystemMode }) => {
   // States
   const [isPasswordShown, setIsPasswordShown] = useState(false)
@@ -144,7 +155,11 @@ const Login = ({ mode }: { mode: SystemMode }) => {
       if (res?.error) {
         const error = JSON.parse(res.error)
 
-        setErrorState(error)
+        // Map server error to user-friendly Vietnamese message
+        const serverMessage = error.message?.[0] || error.message || ''
+        const userMessage = ERROR_MESSAGES[serverMessage] || ERROR_MESSAGES.default
+
+        setErrorState({ message: [userMessage] })
       }
     }
   }
@@ -171,12 +186,7 @@ const Login = ({ mode }: { mode: SystemMode }) => {
             <Typography variant='h4'>{`Welcome to ${themeConfig.templateName}! 👋🏻`}</Typography>
             <Typography>Please sign-in to your account and start the adventure</Typography>
           </div>
-          <form
-            noValidate
-            autoComplete='off'
-            onSubmit={handleSubmit(onSubmit)}
-            className='flex flex-col gap-6'
-          >
+          <form noValidate autoComplete='off' onSubmit={handleSubmit(onSubmit)} className='flex flex-col gap-6'>
             <Controller
               name='email'
               control={control}
