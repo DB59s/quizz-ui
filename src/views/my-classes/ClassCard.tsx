@@ -1,7 +1,7 @@
 'use client'
 
 // React Imports
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { useRouter, useParams, usePathname } from 'next/navigation'
 
 // Lucide Icons
@@ -18,116 +18,63 @@ import CircularProgress from '@mui/material/CircularProgress'
 import Box from '@mui/material/Box'
 import Alert from '@mui/material/Alert'
 
-// Service Imports
-import { classService } from '@/services/class.service'
-
-// Cache Imports
-import { cacheManager, CACHE_KEYS, CACHE_DURATION } from '@/utils/cacheManager'
-
-// Type Imports
-type ClassInfo = {
-  registration_id: string
-  status: 'pending' | 'approved' | 'rejected'
-  class: {
-    _id: string
-    name: string
-    description: string
-    max_students: number
-    current_students: number
-    class_code: string
-  }
-  teacherName?: string
-}
+// Hook Imports
+import { useClasses } from '@/hooks/queries/useClasses'
 
 const ClassCard = () => {
   const router = useRouter()
   const params = useParams()
   const pathname = usePathname()
   const lang = (params?.lang as string) || 'en'
-  const [classes, setClasses] = useState<ClassInfo[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
+  // Use React Query hook for data fetching
+  const { data: classes, isLoading, error } = useClasses()
+
+  // Auto-redirect to last viewed class if user was viewing class detail before
   useEffect(() => {
-    fetchApprovedClasses()
-  }, [])
+    const lastViewedClassId = sessionStorage.getItem('lastViewedClassId')
+    const isListPage = pathname === `/${lang}/my-classes`
 
-  // Clear lastViewedClassId when on the list page to prevent auto-redirect on back button
+    // Only auto-redirect if:
+    // 1. We're on the list page (not already on a detail page)
+    // 2. We have a lastViewedClassId
+    // 3. Classes have loaded successfully
+    if (isListPage && lastViewedClassId && classes && classes.length > 0) {
+      // Verify the classId exists in current classes
+      const classExists = classes.some(c => c.class._id === lastViewedClassId)
+      if (classExists) {
+        // Only redirect if this is not a deliberate navigation to list (e.g., from applications)
+        // We can check if user just came from another route
+        const fromExternal = sessionStorage.getItem('fromExternalRoute')
+        if (fromExternal === 'true') {
+          // Clear the flag and redirect
+          sessionStorage.removeItem('fromExternalRoute')
+          router.push(`/${lang}/my-classes/${lastViewedClassId}`)
+        }
+      }
+    }
+  }, [classes, pathname, lang, router])
+
+  // Clear lastViewedClassId when deliberately navigating to list page
   useEffect(() => {
     const isListPage = pathname === `/${lang}/my-classes`
     if (isListPage) {
-      sessionStorage.removeItem('lastViewedClassId')
+      // Check if this is a deliberate navigation (e.g., clicked "Lớp học của bạn")
+      // If so, clear the lastViewedClassId
+      const shouldClearNavigation = sessionStorage.getItem('clearNavigation')
+      if (shouldClearNavigation === 'true') {
+        sessionStorage.removeItem('lastViewedClassId')
+        sessionStorage.removeItem('clearNavigation')
+      }
     }
   }, [pathname, lang])
-
-  const fetchApprovedClasses = async () => {
-    setLoading(true)
-    setError(null)
-
-    try {
-      // Try to get from cache first
-      const cachedClasses = cacheManager.get<ClassInfo[]>(CACHE_KEYS.STUDENT_APPLICATIONS)
-      if (cachedClasses) {
-        setClasses(cachedClasses)
-        setLoading(false)
-        return
-      }
-
-      const response = await classService.getStudentApplications()
-
-      if (response.success && response.data?.classes) {
-        // Filter only approved classes
-        const approvedClasses = response.data.classes.filter((app: ClassInfo) => app.status === 'approved')
-
-        // Fetch teacher names for each class
-        const classesWithTeachers = await Promise.all(
-          approvedClasses.map(async (app: ClassInfo) => {
-            try {
-              // Check cache for class info first
-              const cacheKey = CACHE_KEYS.CLASS_BY_CODE(app.class.class_code)
-              let classInfo = cacheManager.get(cacheKey)
-
-              if (!classInfo) {
-                // If not in cache, fetch from API
-                const apiResponse = await classService.getClassByCode(app.class.class_code)
-                classInfo = apiResponse.data
-                // Cache the result
-                cacheManager.set(cacheKey, classInfo, CACHE_DURATION.LONG)
-              }
-
-              return {
-                ...app,
-                teacherName: classInfo?.teacher?.full_name || 'Chưa có thông tin'
-              }
-            } catch (error) {
-              return {
-                ...app,
-                teacherName: 'Chưa có thông tin'
-              }
-            }
-          })
-        )
-
-        // Cache the final result
-        cacheManager.set(CACHE_KEYS.STUDENT_APPLICATIONS, classesWithTeachers, CACHE_DURATION.MEDIUM)
-        setClasses(classesWithTeachers)
-      } else {
-        setError(response.message || 'Không thể tải danh sách lớp học')
-      }
-    } catch (err: any) {
-      console.error('Error fetching classes:', err)
-      setError(err?.response?.data?.message || 'Đã xảy ra lỗi khi tải dữ liệu')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleViewClass = (classId: string) => {
     // Navigate to class detail page with language prefix
     router.push(`/${lang}/my-classes/${classId}`)
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Box className='flex justify-center items-center p-8'>
         <CircularProgress />
@@ -136,10 +83,10 @@ const ClassCard = () => {
   }
 
   if (error) {
-    return <Alert severity='error'>{error}</Alert>
+    return <Alert severity='error'>{error.message || 'Đã xảy ra lỗi khi tải dữ liệu'}</Alert>
   }
 
-  if (classes.length === 0) {
+  if (!classes || classes.length === 0) {
     return (
       <Box className='flex flex-col items-center justify-center py-12 px-4'>
         <BookOpen size={48} style={{ color: '#9CA3AF', marginBottom: 12 }} />
@@ -155,7 +102,7 @@ const ClassCard = () => {
 
   return (
     <Grid container spacing={6}>
-      {classes.map((classInfo: ClassInfo) => (
+      {classes.map(classInfo => (
         <Grid size={{ xs: 12, md: 6, lg: 4 }} key={classInfo.registration_id}>
           <Card className='h-full'>
             <CardContent className='flex flex-col gap-4'>

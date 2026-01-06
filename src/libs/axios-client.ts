@@ -32,8 +32,9 @@ axiosClient.interceptors.request.use(
 
         if (!isAuthEndpoint) {
           console.log('No token found, redirecting to login...')
-          // Redirect to login if no token for protected endpoints
-          window.location.href = '/login'
+          // Use relative redirect to avoid production URL issues
+          const currentLang = window.location.pathname.split('/')[1] || 'en'
+          window.location.href = `/${currentLang}/login`
           return Promise.reject(new Error('No authentication token'))
         }
       }
@@ -60,9 +61,10 @@ axiosClient.interceptors.response.use(
       console.log('Token expired or invalid, redirecting to login...')
 
       if (isClient) {
-        // Clear session and redirect to login
+        // Use relative redirect to avoid production URL
+        const currentLang = window.location.pathname.split('/')[1] || 'en'
         await signOut({
-          callbackUrl: '/login',
+          callbackUrl: `/${currentLang}/login`,
           redirect: true
         })
       }
@@ -76,12 +78,13 @@ axiosClient.interceptors.response.use(
       // Retry the request after a short delay
       return new Promise((resolve, reject) => {
         setTimeout(() => {
-          axiosClient.request(error.config as AxiosRequestConfig)
+          axiosClient
+            .request(error.config as AxiosRequestConfig)
             .then(() => {
               retryCount = 0
               resolve({} as any)
             })
-            .catch((retryError) => {
+            .catch(retryError => {
               retryCount = 0
               console.error('Retry failed:', retryError)
               reject(retryError)

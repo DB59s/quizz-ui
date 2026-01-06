@@ -1,11 +1,10 @@
 'use client'
 
 // React Imports
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 
 // Lucide Icons
-import { BarChart3 } from 'lucide-react'
+import { BarChart3, Clock, TrendingUp } from 'lucide-react'
 
 // MUI Imports
 import Grid from '@mui/material/Grid'
@@ -15,9 +14,21 @@ import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
 import CircularProgress from '@mui/material/CircularProgress'
 import Alert from '@mui/material/Alert'
+import Table from '@mui/material/Table'
+import TableBody from '@mui/material/TableBody'
+import TableCell from '@mui/material/TableCell'
+import TableContainer from '@mui/material/TableContainer'
+import TableHead from '@mui/material/TableHead'
+import TableRow from '@mui/material/TableRow'
+import Chip from '@mui/material/Chip'
+import Button from '@mui/material/Button'
 
-// Service Imports
-import { dashboardService, type DashboardData } from '@/services/dashboard.service'
+// Hook Imports
+import { useDashboard } from '@/hooks/queries/useDashboard'
+import { useSubmissions } from '@/hooks/queries/useSubmissions'
+
+// Chart Imports
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 // Component for KPI Card
 const KPICard = ({ title, value, icon, color }: { title: string; value: number; icon: string; color: string }) => {
@@ -54,33 +65,29 @@ const KPICard = ({ title, value, icon, color }: { title: string; value: number; 
 
 const StudentDashboard = () => {
   const router = useRouter()
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const params = useParams()
+  const lang = (params?.lang as string) || 'en'
 
-  useEffect(() => {
-    fetchDashboardData()
-  }, [])
+  // Use React Query hooks for data fetching
+  const { data: dashboardData, isLoading, error } = useDashboard()
+  const { submissions, isLoading: submissionsLoading } = useSubmissions({ page: 1, limit: 5 })
 
-  const fetchDashboardData = async () => {
-    setLoading(true)
-    setError(null)
-
-    try {
-      const response = await dashboardService.getStudentDashboard()
-
-      if (response.success && response.data) {
-        setDashboardData(response.data)
-      }
-    } catch (err: any) {
-      console.error('Error fetching dashboard:', err)
-      setError(err?.response?.data?.message || 'Đã xảy ra lỗi khi tải dữ liệu')
-    } finally {
-      setLoading(false)
-    }
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    })
   }
 
-  if (loading) {
+  const getScoreColor = (score: number) => {
+    if (score >= 8) return '#10B981'
+    if (score >= 5) return '#F59E0B'
+    return '#EF4444'
+  }
+
+  if (isLoading) {
     return (
       <Box className='flex justify-center items-center p-8'>
         <CircularProgress />
@@ -91,7 +98,7 @@ const StudentDashboard = () => {
   if (error) {
     return (
       <Box className='p-4'>
-        <Alert severity='error'>{error}</Alert>
+        <Alert severity='error'>{error.message || 'Đã xảy ra lỗi khi tải dữ liệu'}</Alert>
       </Box>
     )
   }
@@ -100,7 +107,25 @@ const StudentDashboard = () => {
     return <Typography>Không có dữ liệu</Typography>
   }
 
-  const { kpi, progress_chart } = dashboardData
+  const { kpi } = dashboardData
+
+  // Prepare chart data from submissions
+  const chartData =
+    submissions && submissions.length > 0
+      ? submissions
+          .slice()
+          .reverse() // Reverse to show chronological order
+          .map((submission, index) => ({
+            name: `Bài ${index + 1}`,
+            score: submission.score,
+            date: new Date(submission.submitted_at).toLocaleDateString('vi-VN', {
+              day: '2-digit',
+              month: '2-digit'
+            }),
+            quizName:
+              submission.quiz_name?.length > 20 ? submission.quiz_name.substring(0, 20) + '...' : submission.quiz_name
+          }))
+      : []
 
   return (
     <Box>
@@ -130,34 +155,96 @@ const StudentDashboard = () => {
         </Grid>
       </Grid>
 
-      {/* Progress Chart Section */}
-      {progress_chart && progress_chart.length > 0 ? (
-        <Card>
-          <CardContent>
-            <Typography variant='h6' className='font-semibold mb-4'>
-              Biểu đồ tiến độ
+      {/* Score Progression Chart */}
+      <Card>
+        <CardContent>
+          <Box className='flex items-center gap-2 mb-4'>
+            <TrendingUp size={24} color='#3B82F6' />
+            <Typography variant='h6' className='font-semibold'>
+              Biểu đồ tiến độ điểm số
             </Typography>
-            {/* TODO: Add chart component here */}
-            <Box className='flex items-center justify-center p-8'>
-              <Typography color='text.secondary'>Biểu đồ sẽ được hiển thị ở đây</Typography>
+          </Box>
+
+          {submissionsLoading ? (
+            <Box className='flex justify-center items-center' sx={{ height: 300 }}>
+              <CircularProgress />
             </Box>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardContent>
+          ) : chartData.length > 0 ? (
+            <Box sx={{ width: '100%', height: 300 }}>
+              <ResponsiveContainer width='100%' height='100%'>
+                <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <defs>
+                    <linearGradient id='colorScore' x1='0' y1='0' x2='0' y2='1'>
+                      <stop offset='5%' stopColor='#3B82F6' stopOpacity={0.3} />
+                      <stop offset='95%' stopColor='#3B82F6' stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray='3 3' stroke='#E5E7EB' />
+                  <XAxis dataKey='name' tick={{ fill: '#6B7280', fontSize: 12 }} stroke='#E5E7EB' />
+                  <YAxis
+                    domain={[0, 10]}
+                    ticks={[0, 2, 4, 6, 8, 10]}
+                    tick={{ fill: '#6B7280', fontSize: 12 }}
+                    stroke='#E5E7EB'
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#FFFFFF',
+                      border: '1px solid #E5E7EB',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    }}
+                    content={({ active, payload }: any) => {
+                      if (active && payload && payload.length > 0) {
+                        const data = payload[0].payload
+                        return (
+                          <Box sx={{ p: 1.5, minWidth: 200 }}>
+                            <Typography variant='body2' sx={{ fontWeight: 600, mb: 0.5 }}>
+                              {data.quizName}
+                            </Typography>
+                            <Typography variant='body2' color='text.secondary' sx={{ mb: 0.5 }}>
+                              Ngày: {data.date}
+                            </Typography>
+                            <Typography
+                              variant='body2'
+                              sx={{
+                                fontWeight: 600,
+                                color: getScoreColor(data.score)
+                              }}
+                            >
+                              Điểm: {data.score.toFixed(1)}/10
+                            </Typography>
+                          </Box>
+                        )
+                      }
+                      return null
+                    }}
+                  />
+                  <Line
+                    type='monotone'
+                    dataKey='score'
+                    stroke='#3B82F6'
+                    strokeWidth={3}
+                    fill='url(#colorScore)'
+                    dot={{ fill: '#3B82F6', r: 5 }}
+                    activeDot={{ r: 7, fill: '#2563EB' }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </Box>
+          ) : (
             <Box className='flex flex-col items-center justify-center py-12 px-4'>
               <BarChart3 size={48} style={{ color: '#9CA3AF', marginBottom: 12 }} />
               <Typography variant='h6' sx={{ fontWeight: 600, color: '#1F2937', mb: 1 }}>
-                Chưa có dữ liệu tiến độ
+                Chưa có dữ liệu
               </Typography>
               <Typography variant='body2' sx={{ color: '#6B7280', textAlign: 'center', maxWidth: 400 }}>
-                Bạn chưa hoàn thành bài kiểm tra nào. Hãy tham gia các lớp học và hoàn thành bài tập để xem tiến độ của bạn.
+                Hoàn thành bài kiểm tra để xem biểu đồ tiến độ của bạn
               </Typography>
             </Box>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
     </Box>
   )
 }

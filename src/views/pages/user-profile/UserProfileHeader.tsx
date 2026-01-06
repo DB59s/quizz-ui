@@ -1,49 +1,32 @@
 'use client'
 
 // React Imports
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
 // MUI Imports
 import Card from '@mui/material/Card'
-import CardMedia from '@mui/material/CardMedia'
 import CardContent from '@mui/material/CardContent'
 import Typography from '@mui/material/Typography'
 import Button from '@mui/material/Button'
 import CircularProgress from '@mui/material/CircularProgress'
+import Skeleton from '@mui/material/Skeleton'
+import Box from '@mui/material/Box'
+import Divider from '@mui/material/Divider'
 
 // Type Imports
 import type { ProfileHeaderType } from '@/types/pages/profileTypes'
 
-// Service Imports
-import { userService, type UserProfile } from '@/services'
+// Hook Imports
+import { useUserProfile } from '@/hooks/queries/useUserProfile'
 
 // Component Imports
 import UpdateProfileModal from './UpdateProfileModal'
 
 const UserProfileHeader = ({ data }: { data?: ProfileHeaderType }) => {
   const [openModal, setOpenModal] = useState(false)
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [fullName, setFullName] = useState(data?.fullName || '')
 
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        setLoading(true)
-        const response = await userService.getProfile()
-        if (response.success) {
-          setUserProfile(response.data)
-          setFullName(response.data.full_name)
-        }
-      } catch (error) {
-        console.error('Failed to fetch user profile:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchUserProfile()
-  }, [])
+  // Use React Query hook for instant cached loads
+  const { data: userProfile, isLoading } = useUserProfile()
 
   const handleModalOpen = () => {
     setOpenModal(true)
@@ -53,64 +36,100 @@ const UserProfileHeader = ({ data }: { data?: ProfileHeaderType }) => {
     setOpenModal(false)
   }
 
-  const handleUpdateSuccess = (updatedProfile: UserProfile) => {
-    setUserProfile(updatedProfile)
-    setFullName(updatedProfile.full_name)
-  }
-
   return (
     <>
       <Card>
-        <CardMedia image={data?.coverImg} className='bs-[250px]' />
-        <CardContent className='flex gap-5 justify-center flex-col items-center md:items-end md:flex-row !pt-0 md:justify-start'>
-          <div className='flex rounded-bs-md mbs-[-40px] border-[5px] mis-[-5px] border-be-0  border-backgroundPaper bg-backgroundPaper'>
-            <img height={120} width={120} src={data?.profileImg} className='rounded' alt='Profile Background' />
-          </div>
-          <div className='flex is-full justify-start self-end flex-col items-center gap-6 sm-gap-0 sm:flex-row sm:justify-between sm:items-end '>
-            <div className='flex flex-col items-center sm:items-start gap-2'>
-              <Typography variant='h4'>{fullName || 'Loading...'}</Typography>
-              <div className='flex flex-wrap gap-6 justify-center sm:justify-normal'>
-                {userProfile?.student_code && (
-                  <div className='flex items-center gap-2'>
-                    <i className='tabler-id-badge' />
-                    <Typography className='font-medium'>{userProfile.student_code}</Typography>
-                  </div>
+        <CardContent>
+          <Box className='flex flex-col gap-4'>
+            {/* Header Section */}
+            <Box className='flex items-start justify-between'>
+              <Box className='flex flex-col gap-2'>
+                {isLoading ? (
+                  <>
+                    <Skeleton variant='text' width={250} height={40} />
+                    <Skeleton variant='text' width={180} height={24} />
+                  </>
+                ) : (
+                  <>
+                    <Typography variant='h4' sx={{ fontWeight: 600 }}>
+                      {userProfile?.full_name || 'N/A'}
+                    </Typography>
+                    <Typography variant='body1' color='text.secondary'>
+                      {userProfile?.email}
+                    </Typography>
+                  </>
                 )}
-                {userProfile?.class_name && (
-                  <div className='flex items-center gap-2'>
-                    <i className='tabler-building-community' />
-                    <Typography className='font-medium'>{userProfile.class_name}</Typography>
-                  </div>
+              </Box>
+              <Button
+                variant='contained'
+                onClick={handleModalOpen}
+                disabled={isLoading}
+                sx={{
+                  bgcolor: 'var(--mui-palette-primary-main)',
+                  '&:hover': {
+                    bgcolor: 'var(--mui-palette-primary-dark)'
+                  }
+                }}
+              >
+                {isLoading ? (
+                  <CircularProgress size={20} sx={{ color: 'white' }} />
+                ) : (
+                  <>
+                    <i className='tabler-edit !text-base mr-2'></i>
+                    <span>Cập nhật</span>
+                  </>
                 )}
-                {userProfile?.phone_number && (
-                  <div className='flex items-center gap-2'>
-                    <i className='tabler-phone' />
-                    <Typography className='font-medium'>{userProfile.phone_number}</Typography>
-                  </div>
-                )}
-              </div>
-            </div>
-            <Button variant='contained' onClick={handleModalOpen} disabled={loading} className='flex gap-2'>
-              {loading ? (
+              </Button>
+            </Box>
+
+            <Divider />
+
+            {/* Info Grid */}
+            <Box className='flex flex-wrap gap-6'>
+              {isLoading ? (
                 <>
-                  <CircularProgress size={20} />
+                  <Skeleton variant='text' width={150} height={24} />
+                  <Skeleton variant='text' width={150} height={24} />
+                  <Skeleton variant='text' width={150} height={24} />
                 </>
               ) : (
                 <>
-                  <i className='tabler-user-check !text-base'></i>
-                  <span>Cập nhật</span>
+                  {userProfile?.student_code && (
+                    <Box className='flex items-center gap-2'>
+                      <i className='tabler-id-badge' style={{ color: 'var(--mui-palette-primary-main)' }} />
+                      <Typography variant='body2' sx={{ fontWeight: 500 }}>
+                        {userProfile.student_code}
+                      </Typography>
+                    </Box>
+                  )}
+                  {userProfile?.class_name && (
+                    <Box className='flex items-center gap-2'>
+                      <i className='tabler-building-community' style={{ color: 'var(--mui-palette-primary-main)' }} />
+                      <Typography variant='body2' sx={{ fontWeight: 500 }}>
+                        {userProfile.class_name}
+                      </Typography>
+                    </Box>
+                  )}
+                  {userProfile?.phone_number && (
+                    <Box className='flex items-center gap-2'>
+                      <i className='tabler-phone' style={{ color: 'var(--mui-palette-primary-main)' }} />
+                      <Typography variant='body2' sx={{ fontWeight: 500 }}>
+                        {userProfile.phone_number}
+                      </Typography>
+                    </Box>
+                  )}
                 </>
               )}
-            </Button>
-          </div>
+            </Box>
+          </Box>
         </CardContent>
       </Card>
 
       <UpdateProfileModal
         open={openModal}
         onClose={handleModalClose}
-        userProfile={userProfile}
-        onSuccess={handleUpdateSuccess}
+        userProfile={userProfile || null}
+        onSuccess={handleModalClose}
       />
     </>
   )

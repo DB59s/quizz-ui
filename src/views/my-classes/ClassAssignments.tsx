@@ -78,9 +78,7 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
   const [totalItems, setTotalItems] = useState(0)
   const fetchKeyRef = useRef<string>('')
   const classInfoFetchedRef = useRef<string>('')
-  const mountTimeRef = useRef<number>(Date.now())
   const lastClassIdRef = useRef<string>('')
-  const isFirstMountRef = useRef<boolean>(true)
 
   // Fetch class info
   const fetchClassInfo = useCallback(async () => {
@@ -193,7 +191,7 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
         setLoading(false)
       }
     },
-    [classId, itemsPerPage, fetchClassInfo, mapQuizzToAssignment]
+    [classId, itemsPerPage, classInfo, fetchClassInfo, mapQuizzToAssignment]
   )
 
   // Main effect - fetch data when classId or page changes
@@ -204,22 +202,29 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
       return
     }
 
+    // Check if this is truly the first mount for this classId in this session
+    const sessionKey = `classAssignments_initialized_${classId}`
+    const isRealFirstMount = !sessionStorage.getItem(sessionKey)
+
     // Reset flags if classId changed (new class loaded)
     if (lastClassIdRef.current !== classId) {
-      mountTimeRef.current = Date.now()
       lastClassIdRef.current = classId
-      isFirstMountRef.current = true
+      if (isRealFirstMount) {
+        // Mark as initialized in sessionStorage
+        sessionStorage.setItem(sessionKey, 'true')
+      }
     }
 
     const key = `${classId}_${currentPage}`
-    if (fetchKeyRef.current === key && !isFirstMountRef.current) return
+
+    // Skip if already fetched this exact page (prevents duplicate fetches)
+    if (fetchKeyRef.current === key && !isRealFirstMount) return
 
     setValidClassId(classId)
     fetchKeyRef.current = key
 
-    // On first mount (F5 or initial navigation), always clear cache and fetch fresh data
-    if (isFirstMountRef.current) {
-      isFirstMountRef.current = false
+    // On real first mount (F5 or initial navigation), clear cache and fetch fresh
+    if (isRealFirstMount) {
       assignmentsCache.clearAll(classId)
       // Load classInfo from cache if available (for immediate display)
       const cachedClassInfo = assignmentsCache.getClassInfo(classId)
@@ -229,7 +234,7 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
       return
     }
 
-    // For subsequent loads (page change, etc.), try cache first
+    // For subsequent loads (tab switches, page changes), try cache first
     const cached = assignmentsCache.get(classId, currentPage)
     if (cached?.assignments?.length) {
       // Show cached data immediately without refetching
@@ -407,12 +412,15 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
     fetchKeyRef.current = '' // Reset to allow fetch for new page
   }, [])
 
-  const handleLimitChange = useCallback((newLimit: number) => {
-    setItemsPerPage(newLimit)
-    setCurrentPage(1) // Reset to first page when changing limit
-    fetchKeyRef.current = '' // Reset to allow fetch
-    assignmentsCache.clearAll(classId) // Clear cache when limit changes
-  }, [classId])
+  const handleLimitChange = useCallback(
+    (newLimit: number) => {
+      setItemsPerPage(newLimit)
+      setCurrentPage(1) // Reset to first page when changing limit
+      fetchKeyRef.current = '' // Reset to allow fetch
+      assignmentsCache.clearAll(classId) // Clear cache when limit changes
+    },
+    [classId]
+  )
 
   const renderEmptyState = useCallback(() => {
     return (

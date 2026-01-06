@@ -1,7 +1,7 @@
 'use client'
 
 // React Imports
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 
 // Next Imports
@@ -23,6 +23,7 @@ import Button from '@mui/material/Button'
 
 // Third-party Imports
 import { signOut, useSession } from 'next-auth/react'
+import { useQueryClient } from '@tanstack/react-query'
 
 // Lib Imports
 import { clearSessionStorage } from '@/libs/axios-client'
@@ -32,9 +33,7 @@ import type { Locale } from '@configs/i18n'
 
 // Hook Imports
 import { useSettings } from '@core/hooks/useSettings'
-
-// Service Imports
-import { userService } from '@/services/user.service'
+import { useUserProfile } from '@/hooks/queries/useUserProfile'
 
 // Util Imports
 import { getLocalizedUrl } from '@/utils/i18n'
@@ -52,8 +51,6 @@ const BadgeContentSpan = styled('span')({
 const UserDropdown = () => {
   // States
   const [open, setOpen] = useState(false)
-  const [userProfile, setUserProfile] = useState<any>(null)
-  const [loading, setLoading] = useState(false)
 
   // Refs
   const anchorRef = useRef<HTMLDivElement>(null)
@@ -63,27 +60,10 @@ const UserDropdown = () => {
   const { data: session } = useSession()
   const { settings } = useSettings()
   const { lang: locale } = useParams()
+  const queryClient = useQueryClient()
 
-  // Fetch user profile from API
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        setLoading(true)
-        const response = await userService.getProfile()
-        if (response.success) {
-          setUserProfile(response.data)
-        }
-      } catch (error) {
-        console.error('Failed to fetch user profile:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    if (session?.user) {
-      fetchUserProfile()
-    }
-  }, [session?.user])
+  // Use React Query for instant cached profile
+  const { data: userProfile } = useUserProfile()
 
   const handleDropdownOpen = () => {
     !open ? setOpen(true) : setOpen(false)
@@ -103,13 +83,16 @@ const UserDropdown = () => {
 
   const handleUserLogout = async () => {
     try {
-      // Clear session storage before signing out
+      // Clear session storage
       clearSessionStorage()
-      
-      // Sign out from the app and redirect to login page
-      await signOut({ 
-        callbackUrl: getLocalizedUrl('/login', locale as Locale),
-        redirect: true 
+
+      // Clear ALL React Query cache for instant logout
+      queryClient.clear()
+
+      // Sign out with RELATIVE path to avoid production redirect
+      await signOut({
+        callbackUrl: `/${locale}/login`,
+        redirect: true
       })
     } catch (error) {
       console.error(error)
@@ -155,7 +138,10 @@ const UserDropdown = () => {
               <ClickAwayListener onClickAway={e => handleDropdownClose(e as MouseEvent | TouchEvent)}>
                 <MenuList>
                   <div className='flex items-center plb-2 pli-6 gap-2' tabIndex={-1}>
-                    <Avatar alt={userProfile?.full_name || session?.user?.name || ''} src={session?.user?.image || ''} />
+                    <Avatar
+                      alt={userProfile?.full_name || session?.user?.name || ''}
+                      src={session?.user?.image || ''}
+                    />
                     <div className='flex items-start flex-col'>
                       <Typography className='font-medium' color='text.primary'>
                         {userProfile?.full_name || session?.user?.name || ''}

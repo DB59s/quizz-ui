@@ -18,21 +18,8 @@ import Alert from '@mui/material/Alert'
 import ClassOverview from './ClassOverview'
 import ClassAssignments from './ClassAssignments'
 
-// Service Imports
-import { classService } from '@/services/class.service'
-
-// Cache Imports
-import { cacheManager, CACHE_KEYS, CACHE_DURATION } from '@/utils/cacheManager'
-
-type ClassInfo = {
-  id: string
-  name: string
-  code: string
-  teacher: string
-  description: string
-  maxStudents: number
-  currentStudents: number
-}
+// Hook Imports
+import { useClassDetail } from '@/hooks/queries/useClassDetail'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -72,77 +59,22 @@ const ClassDetail = ({ classId }: { classId: string }) => {
     return 0
   })
 
-  const [classInfo, setClassInfo] = useState<ClassInfo | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  // Use React Query hook for data fetching
+  const { data: classInfo, isLoading, error } = useClassDetail(classId)
 
+  // Save current classId to sessionStorage for navigation persistence
   useEffect(() => {
-    // Fetch class info when classId changes
-    fetchClassInfo()
+    if (classId) {
+      sessionStorage.setItem('lastViewedClassId', classId)
+    }
   }, [classId])
 
-  useEffect(() => {
-    // Save active tab to sessionStorage whenever it changes
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem(`classDetail_tab_${classId}`, tabValue.toString())
-    }
-  }, [tabValue, classId])
-
-  const fetchClassInfo = async () => {
-    setLoading(true)
-    setError(null)
-
-    try {
-      // Try to get from cache first
-      const cachedApplications = cacheManager.get<any[]>(CACHE_KEYS.STUDENT_APPLICATIONS)
-      let foundClass = cachedApplications?.find((app: any) => app.class._id === classId)
-
-      // If not in cache, fetch from API
-      if (!foundClass) {
-        const response = await classService.getStudentApplications()
-
-        if (response.success && response.data?.classes) {
-          foundClass = response.data.classes.find((app: any) => app.class._id === classId)
-          // Cache the applications
-          cacheManager.set(CACHE_KEYS.STUDENT_APPLICATIONS, response.data.classes, CACHE_DURATION.MEDIUM)
-        }
-      }
-
-      if (foundClass) {
-        // Check cache for class info
-        const cacheKey = CACHE_KEYS.CLASS_BY_CODE(foundClass.class.class_code)
-        let classRes = cacheManager.get<any>(cacheKey)
-
-        if (!classRes) {
-          // If not in cache, fetch from API
-          const apiResponse = await classService.getClassByCode(foundClass.class.class_code)
-          classRes = apiResponse
-          // Cache the result
-          cacheManager.set(cacheKey, apiResponse, CACHE_DURATION.LONG)
-        }
-
-        setClassInfo({
-          id: foundClass.class._id,
-          name: foundClass.class.name,
-          code: foundClass.class.class_code,
-          teacher: classRes?.teacher?.full_name || 'Chưa có thông tin',
-          description: foundClass.class.description || 'Không có mô tả',
-          maxStudents: foundClass.class.max_students,
-          currentStudents: foundClass.class.current_students
-        })
-      } else {
-        setError('Không tìm thấy thông tin lớp học')
-      }
-    } catch (err: any) {
-      console.error('Error fetching class info:', err)
-      setError(err?.response?.data?.message || 'Đã xảy ra lỗi khi tải dữ liệu')
-    } finally {
-      setLoading(false)
-    }
-  }
-
+  // Save active tab to sessionStorage whenever it changes
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue)
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(`classDetail_tab_${classId}`, newValue.toString())
+    }
   }
 
   const handleBack = () => {
@@ -151,7 +83,7 @@ const ClassDetail = ({ classId }: { classId: string }) => {
     router.push(`/${lang}/my-classes`)
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Box className='flex justify-center items-center p-8'>
         <CircularProgress />
@@ -162,7 +94,7 @@ const ClassDetail = ({ classId }: { classId: string }) => {
   if (error || !classInfo) {
     return (
       <Box>
-        <Alert severity='error'>{error || 'Không tìm thấy thông tin lớp học'}</Alert>
+        <Alert severity='error'>{error?.message || 'Không tìm thấy thông tin lớp học'}</Alert>
       </Box>
     )
   }
