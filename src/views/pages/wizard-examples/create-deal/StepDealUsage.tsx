@@ -49,8 +49,8 @@ const StepDealUsage = ({ activeStep, handleNext, handlePrev, steps }: Props) => 
       <Grid size={{ xs: 12, sm: 6 }}>
         <CustomTextField select fullWidth label='Deal Status' defaultValue=''>
           <MenuItem value=''>Select Deal Status</MenuItem>
-          <MenuItem value='active'>Active</MenuItem>
-          <MenuItem value='inactive'>Inactive</MenuItem>
+          <MenuItem value='active'>Đang hoạt động</MenuItem>
+          <MenuItem value='inactive'>Ngừng hoạt động</MenuItem>
           <MenuItem value='suspended'>Suspended</MenuItem>
           <MenuItem value='abandoned'>Abandoned</MenuItem>
         </CustomTextField>

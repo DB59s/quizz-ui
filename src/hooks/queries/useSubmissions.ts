@@ -39,7 +39,9 @@ export function useSubmissions({ page = 1, limit = 10, classId }: UseSubmissions
       }
     },
     staleTime: 1 * 60 * 1000, // 1 minute - submissions may change frequently
-    gcTime: 5 * 60 * 1000
+    gcTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true, // Refetch when user returns to tab
+    refetchOnMount: true // Always refetch for fresh submissions
   })
 
   // Prefetch next page for instant navigation

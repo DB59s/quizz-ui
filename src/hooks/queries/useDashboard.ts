@@ -20,6 +20,7 @@ export function useDashboard() {
     },
     staleTime: 2 * 60 * 1000, // 2 minutes - moderate freshness for dashboard
     gcTime: 10 * 60 * 1000,
-    refetchOnMount: true // Always refetch when mounting for fresh stats
+    refetchOnMount: true, // Always refetch when mounting for fresh stats
+    refetchOnWindowFocus: true // Refetch when user returns to tab
   })
 }

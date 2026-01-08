@@ -62,7 +62,9 @@ export function useApplications() {
       return applicationsWithTeachers
     },
     staleTime: 2 * 60 * 1000, // 2 minutes - applications may change frequently
-    gcTime: 10 * 60 * 1000
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: true, // Refetch when user returns to tab
+    refetchOnMount: true // Always refetch on component mount
   })
 }
 

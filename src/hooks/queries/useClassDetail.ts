@@ -65,6 +65,7 @@ export function useClassDetail(classId: string) {
     },
     staleTime: 5 * 60 * 1000, // 5 minutes - class details don't change often
     gcTime: 10 * 60 * 1000,
-    enabled: !!classId // Only run query if classId is provided
+    enabled: !!classId, // Only run query if classId is provided
+    refetchOnWindowFocus: true // Refetch when returning to page
   })
 }

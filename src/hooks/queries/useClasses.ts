@@ -74,6 +74,8 @@ export function useClasses() {
       return classesWithTeachers
     },
     staleTime: 3 * 60 * 1000, // 3 minutes - classes don't change often
-    gcTime: 10 * 60 * 1000 // 10 minutes in cache
+    gcTime: 10 * 60 * 1000, // 10 minutes in cache
+    refetchOnWindowFocus: true, // Refetch on window focus
+    refetchOnMount: true // Refetch on mount
   })
 }
