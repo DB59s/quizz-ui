@@ -63,7 +63,15 @@ type ClassInfo = {
   teacher: string
 }
 
-const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isTabView?: boolean }) => {
+const ClassAssignments = ({
+  classId,
+  isTabView = false,
+  isActive = true
+}: {
+  classId: string
+  isTabView?: boolean
+  isActive?: boolean
+}) => {
   const router = useRouter()
   const params = useParams()
   const lang = (params.lang as string) || 'en'
@@ -140,7 +148,7 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
 
   // Fetch assignments from API
   const fetchAssignments = useCallback(
-    async (page: number = 1) => {
+    async (page: number = 1, skipCache: boolean = false) => {
       if (!classId) return
 
       setLoading(true)
@@ -148,7 +156,7 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
 
       try {
         const [quizzesResponse, submissionsResponse] = await Promise.all([
-          classQuizzService.getClassQuizzes(classId, page, itemsPerPage),
+          classQuizzService.getClassQuizzes(classId, page, itemsPerPage, skipCache),
           classQuizzService.getStudentSubmissionsByClass(classId).catch(() => ({ success: false, data: [] }))
         ])
 
@@ -177,11 +185,14 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
           setItemsPerPage(paginationData.itemsPerPage)
           setTotalItems(paginationData.totalItems)
 
-          assignmentsCache.set(classId, page, {
-            assignments: mappedAssignments,
-            classInfo,
-            pagination: { currentPage: page, ...paginationData }
-          })
+          // Only cache if not skipping cache
+          if (!skipCache) {
+            assignmentsCache.set(classId, page, {
+              assignments: mappedAssignments,
+              classInfo,
+              pagination: { currentPage: page, ...paginationData }
+            })
+          }
         }
 
         if (!classInfo) await fetchClassInfo()
@@ -194,6 +205,9 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
     [classId, itemsPerPage, classInfo, fetchClassInfo, mapQuizzToAssignment]
   )
 
+  // Track if this is initial mount to avoid double fetch
+  const isInitialMountRef = useRef(true)
+
   // Main effect - fetch data when classId or page changes
   useEffect(() => {
     if (!classId?.trim()) {
@@ -202,67 +216,49 @@ const ClassAssignments = ({ classId, isTabView = false }: { classId: string; isT
       return
     }
 
-    // Check if this is truly the first mount for this classId in this session
-    const sessionKey = `classAssignments_initialized_${classId}`
-    const isRealFirstMount = !sessionStorage.getItem(sessionKey)
+    const key = `${classId}_${currentPage}`
 
     // Reset flags if classId changed (new class loaded)
     if (lastClassIdRef.current !== classId) {
       lastClassIdRef.current = classId
-      if (isRealFirstMount) {
-        // Mark as initialized in sessionStorage
-        sessionStorage.setItem(sessionKey, 'true')
-      }
+      fetchKeyRef.current = '' // Allow fresh fetch for new class
     }
 
-    const key = `${classId}_${currentPage}`
-
-    // Skip if already fetched this exact page (prevents duplicate fetches)
-    if (fetchKeyRef.current === key && !isRealFirstMount) return
+    // Skip if already fetched this exact page (prevents duplicate fetches within same render)
+    if (fetchKeyRef.current === key) return
 
     setValidClassId(classId)
     fetchKeyRef.current = key
 
-    // On real first mount (F5 or initial navigation), clear cache and fetch fresh
-    if (isRealFirstMount) {
-      assignmentsCache.clearAll(classId)
-      // Load classInfo from cache if available (for immediate display)
-      const cachedClassInfo = assignmentsCache.getClassInfo(classId)
-      if (cachedClassInfo) setClassInfo(cachedClassInfo)
-      // Always fetch fresh data on first mount
-      fetchAssignments(currentPage)
-      return
-    }
-
-    // For subsequent loads (tab switches, page changes), try cache first
-    const cached = assignmentsCache.get(classId, currentPage)
-    if (cached?.assignments?.length) {
-      // Show cached data immediately without refetching
-      setAssignments(cached.assignments)
-      setTotalPages(cached.pagination.totalPages)
-      setItemsPerPage(cached.pagination.itemsPerPage)
-      setTotalItems(cached.pagination.totalItems)
-      if (cached.classInfo) setClassInfo(cached.classInfo)
-      setLoading(false)
-      return
-    }
-
-    // Load classInfo from cache if available
+    // Load classInfo from cache if available (for immediate display)
     const cachedClassInfo = assignmentsCache.getClassInfo(classId)
     if (cachedClassInfo) setClassInfo(cachedClassInfo)
 
-    // Fetch from API
+    // Always fetch fresh data
     fetchAssignments(currentPage)
+    isInitialMountRef.current = false
   }, [classId, currentPage, fetchAssignments])
-
-  // Note: Window focus listener removed to prevent excessive API calls
-  // Cache invalidation now happens only on first mount or after mutations
-  // If stale data is a concern, users can manually refresh or cache TTL can be adjusted
 
   // Fetch classInfo separately (only once per classId)
   useEffect(() => {
     if (classId && !classInfo) fetchClassInfo()
   }, [classId, classInfo, fetchClassInfo])
+
+  // Refetch when tab becomes active (for fresh data)
+  useEffect(() => {
+    // Skip on initial mount (main effect already handles it)
+    if (isInitialMountRef.current) return
+
+    if (isActive && classId) {
+      // Clear the fetch key to allow refetch
+      fetchKeyRef.current = ''
+      // Clear cache to get fresh data
+      assignmentsCache.clearAll(classId)
+      // Fetch fresh data and skip caching
+      fetchAssignments(currentPage, true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive])
 
   const formatDate = useCallback((dateString: string) => {
     const date = new Date(dateString)

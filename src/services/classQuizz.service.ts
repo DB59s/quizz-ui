@@ -59,9 +59,10 @@ export const classQuizzService = {
   /**
    * Get all class quizzes for a student in a specific class
    */
-  getClassQuizzes: async (classId: string, page: number = 1, limit: number = 10) => {
+  getClassQuizzes: async (classId: string, page: number = 1, limit: number = 10, skipCache: boolean = false) => {
+    const timestamp = skipCache ? `&_t=${Date.now()}` : ''
     const response = await apiClient.get<ClassQuizzResponse>(
-      `/api/v1/class-quizzes/class/${classId}/student/all?page=${page}&limit=${limit}`
+      `/api/v1/class-quizzes/class/${classId}/student/all?page=${page}&limit=${limit}${timestamp}`
     )
     return response.data
   },

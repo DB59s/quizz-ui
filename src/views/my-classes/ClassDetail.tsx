@@ -150,7 +150,7 @@ const ClassDetail = ({ classId }: { classId: string }) => {
         </TabPanel>
 
         <TabPanel value={tabValue} index={1}>
-          <ClassAssignments classId={classId} isTabView={true} />
+          <ClassAssignments classId={classId} isTabView={true} isActive={tabValue === 1} />
         </TabPanel>
       </Card>
     </Box>
